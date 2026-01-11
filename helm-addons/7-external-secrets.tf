@@ -3,30 +3,34 @@
 # =============================================================================
 #
 # External Secrets Operator synchronizes secrets from AWS Secrets Manager and
-# AWS Systems Manager Parameter Store to Kubernetes secrets. This enables
-# secure secret management using AWS native services.
+# AWS Systems Manager Parameter Store to Kubernetes secrets.
 #
 # Resources created:
-# - IAM role with IRSA (IAM Roles for Service Accounts) trust policy
+# - IAM role with IRSA trust policy
 # - IAM policy with permissions for Secrets Manager access
 # - Helm release for External Secrets chart
 # =============================================================================
 
 data "aws_iam_policy_document" "external_secret_trust_policy" {
   statement {
-    actions = [
-      "sts:AssumeRoleWithWebIdentity"
-    ]
-    effect = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
 
     principals {
       type        = "Federated"
       identifiers = [data.aws_iam_openid_connect_provider.this.arn]
     }
+
     condition {
       test     = "StringEquals"
-      variable = "${replace(data.aws_iam_openid_connect_provider.this.url, "https://", "")}:sub"
-      values   = ["system:serviceaccount:external-secrets:external-secrets"]
+      variable = "${local.oidc_provider_url}:sub"
+      values   = ["system:serviceaccount:${var.external_secrets.namespace}:external-secrets"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider_url}:aud"
+      values   = ["sts.amazonaws.com"]
     }
   }
 }
@@ -34,16 +38,16 @@ data "aws_iam_policy_document" "external_secret_trust_policy" {
 resource "aws_iam_role" "external_secrets" {
   count = var.enable_external_secrets ? 1 : 0
 
-  name               = "ause1-role-eks-addons-external-secrets-${var.account_name}-${var.project_name}"
+  name               = "${local.name_prefix}-external-secrets-${var.account_name}-${var.project_name}"
   assume_role_policy = data.aws_iam_policy_document.external_secret_trust_policy.json
 
-  tags = var.tags_common
+  tags = local.common_tags
 }
 
 resource "aws_iam_policy" "external_secrets" {
   count = var.enable_external_secrets ? 1 : 0
 
-  name = "ause1-policy-eks-addons-external-secrets-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-external-secrets-${var.account_name}-${var.project_name}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -51,7 +55,6 @@ resource "aws_iam_policy" "external_secrets" {
       {
         Sid = "ExternalSecretsSecretsManagerPermissions"
         Action = [
-          # Secrets Manager read permissions
           "secretsmanager:GetResourcePolicy",
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret",
@@ -64,7 +67,7 @@ resource "aws_iam_policy" "external_secrets" {
     ]
   })
 
-  tags = var.tags_common
+  tags = local.common_tags
 }
 
 resource "aws_iam_role_policy_attachment" "external_secrets" {
@@ -74,6 +77,11 @@ resource "aws_iam_role_policy_attachment" "external_secrets" {
   policy_arn = aws_iam_policy.external_secrets[0].arn
 }
 
+# Local variable for backwards compatibility
+locals {
+  external_secrets_helm_version = coalesce(var.external_secrets.helm_version, var.external_secrets_helm_version)
+}
+
 resource "helm_release" "external_secrets" {
   count = var.enable_external_secrets ? 1 : 0
 
@@ -81,18 +89,27 @@ resource "helm_release" "external_secrets" {
 
   repository       = "https://charts.external-secrets.io"
   chart            = "external-secrets"
-  version          = var.external_secrets_helm_version
-  namespace        = "external-secrets"
-  create_namespace = true
+  version          = local.external_secrets_helm_version
+  namespace        = var.external_secrets.namespace
+  create_namespace = var.external_secrets.create_namespace
+  timeout          = var.external_secrets.timeout
 
-  set = [
-    {
-      name  = "serviceAccount.name"
-      value = "external-secrets"
-    },
-    {
-      name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-      value = aws_iam_role.external_secrets[0].arn
+  set {
+    name  = "serviceAccount.name"
+    value = "external-secrets"
+  }
+
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = aws_iam_role.external_secrets[0].arn
+  }
+
+  dynamic "set" {
+    for_each = var.external_secrets.set_values
+
+    content {
+      name  = set.value.name
+      value = set.value.value
     }
-  ]
+  }
 }

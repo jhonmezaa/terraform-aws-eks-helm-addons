@@ -3,15 +3,21 @@ data "aws_iam_policy_document" "karpenter_controller_assume_role_policy" {
     actions = ["sts:AssumeRoleWithWebIdentity"]
     effect  = "Allow"
 
-    condition {
-      test     = "StringEquals"
-      variable = "${replace(data.aws_iam_openid_connect_provider.this.url, "https://", "")}:sub"
-      values   = ["system:serviceaccount:kube-system:karpenter"]
+    principals {
+      type        = "Federated"
+      identifiers = [data.aws_iam_openid_connect_provider.this.arn]
     }
 
-    principals {
-      identifiers = [data.aws_iam_openid_connect_provider.this.arn]
-      type        = "Federated"
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider_url}:sub"
+      values   = ["system:serviceaccount:${var.karpenter.namespace}:karpenter"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider_url}:aud"
+      values   = ["sts.amazonaws.com"]
     }
   }
 }
@@ -19,16 +25,16 @@ data "aws_iam_policy_document" "karpenter_controller_assume_role_policy" {
 resource "aws_iam_role" "karpenter_controller" {
   count = var.enable_karpenter ? 1 : 0
 
+  name               = "${local.name_prefix}-karpenter-${var.account_name}-${var.project_name}"
   assume_role_policy = data.aws_iam_policy_document.karpenter_controller_assume_role_policy.json
-  name               = "ause1-role-eks-addons-karpenter-${var.account_name}-${var.project_name}"
 
-  tags = var.tags_common
+  tags = local.common_tags
 }
 
 resource "aws_iam_policy" "karpenter_controller" {
   count = var.enable_karpenter ? 1 : 0
 
-  name = "ause1-policy-eks-addons-karpenter-controller-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-karpenter-controller-${var.account_name}-${var.project_name}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -67,7 +73,7 @@ resource "aws_iam_policy" "karpenter_controller" {
     ]
   })
 
-  tags = var.tags_common
+  tags = local.common_tags
 }
 
 resource "aws_iam_role_policy_attachment" "karpenter_controller_attach" {
@@ -80,11 +86,16 @@ resource "aws_iam_role_policy_attachment" "karpenter_controller_attach" {
 resource "aws_iam_instance_profile" "karpenter" {
   count = var.enable_karpenter ? 1 : 0
 
-  name = "ause1-instance-profile-eks-karpenter-${var.account_name}-${var.project_name}"
+  name = "${local.instance_profile_prefix}-karpenter-${var.account_name}-${var.project_name}"
   role = var.node_role_name
 
-  tags = var.tags_common
+  tags = local.common_tags
+}
 
+# Local variables for backwards compatibility
+locals {
+  karpenter_helm_version = coalesce(var.karpenter.helm_version, var.karpenter_helm_version)
+  karpenter_spotconsolidation = coalesce(var.karpenter.spotconsolidation, var.spotconsolidation)
 }
 
 resource "helm_release" "karpenter" {
@@ -96,30 +107,42 @@ resource "helm_release" "karpenter" {
   repository_username = data.aws_ecrpublic_authorization_token.token.user_name
   repository_password = data.aws_ecrpublic_authorization_token.token.password
   chart               = "karpenter"
-  namespace           = "kube-system"
-  version             = var.karpenter_helm_version
-  create_namespace    = true
+  namespace           = var.karpenter.namespace
+  version             = local.karpenter_helm_version
+  create_namespace    = var.karpenter.create_namespace
+  timeout             = var.karpenter.timeout
 
-  set = [
-    {
-      name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-      value = aws_iam_role.karpenter_controller[0].arn
-    },
-    {
-      name  = "settings.clusterName"
-      value = var.eks_name
-    },
-    {
-      name  = "settings.clusterEndpoint"
-      value = var.eks_cluster_endpoint
-    },
-    {
-      name  = "settings.featureGates.spotToSpotConsolidation"
-      value = var.spotconsolidation
-    },
-    {
-      name  = "aws.defaultInstanceProfile"
-      value = aws_iam_instance_profile.karpenter[0].name
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = aws_iam_role.karpenter_controller[0].arn
+  }
+
+  set {
+    name  = "settings.clusterName"
+    value = var.eks_name
+  }
+
+  set {
+    name  = "settings.clusterEndpoint"
+    value = var.eks_cluster_endpoint
+  }
+
+  set {
+    name  = "settings.featureGates.spotToSpotConsolidation"
+    value = local.karpenter_spotconsolidation
+  }
+
+  set {
+    name  = "aws.defaultInstanceProfile"
+    value = aws_iam_instance_profile.karpenter[0].name
+  }
+
+  dynamic "set" {
+    for_each = var.karpenter.set_values
+
+    content {
+      name  = set.value.name
+      value = set.value.value
     }
-  ]
+  }
 }
