@@ -106,37 +106,29 @@ resource "helm_release" "aws_node_termination_handler" {
   create_namespace = var.aws_node_termination_handler.create_namespace
   timeout          = var.aws_node_termination_handler.timeout
 
-  set {
-    name  = "serviceAccount.create"
-    value = "true"
-  }
-
-  set {
-    name  = "serviceAccount.name"
-    value = "aws-node-termination-handler"
-  }
-
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.aws_node_termination_handler[0].arn
-  }
-
-  set {
-    name  = "enableSpotInterruptionDraining"
-    value = var.aws_node_termination_handler.enable_spot_interruption_draining
-  }
-
-  set {
-    name  = "enableScheduledEventDraining"
-    value = var.aws_node_termination_handler.enable_scheduled_event_draining
-  }
-
-  dynamic "set" {
-    for_each = var.aws_node_termination_handler.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "serviceAccount.create"
+        value = "true"
+      },
+      {
+        name  = "serviceAccount.name"
+        value = "aws-node-termination-handler"
+      },
+      {
+        name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.aws_node_termination_handler[0].arn
+      },
+      {
+        name  = "enableSpotInterruptionDraining"
+        value = tostring(var.aws_node_termination_handler.enable_spot_interruption_draining)
+      },
+      {
+        name  = "enableScheduledEventDraining"
+        value = tostring(var.aws_node_termination_handler.enable_scheduled_event_draining)
+      }
+    ],
+    var.aws_node_termination_handler.set_values
+  )
 }

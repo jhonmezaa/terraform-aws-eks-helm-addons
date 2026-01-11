@@ -112,37 +112,29 @@ resource "helm_release" "karpenter" {
   create_namespace    = var.karpenter.create_namespace
   timeout             = var.karpenter.timeout
 
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.karpenter_controller[0].arn
-  }
-
-  set {
-    name  = "settings.clusterName"
-    value = var.eks_name
-  }
-
-  set {
-    name  = "settings.clusterEndpoint"
-    value = var.eks_cluster_endpoint
-  }
-
-  set {
-    name  = "settings.featureGates.spotToSpotConsolidation"
-    value = local.karpenter_spotconsolidation
-  }
-
-  set {
-    name  = "aws.defaultInstanceProfile"
-    value = aws_iam_instance_profile.karpenter[0].name
-  }
-
-  dynamic "set" {
-    for_each = var.karpenter.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.karpenter_controller[0].arn
+      },
+      {
+        name  = "settings.clusterName"
+        value = var.eks_name
+      },
+      {
+        name  = "settings.clusterEndpoint"
+        value = var.eks_cluster_endpoint
+      },
+      {
+        name  = "settings.featureGates.spotToSpotConsolidation"
+        value = tostring(local.karpenter_spotconsolidation)
+      },
+      {
+        name  = "aws.defaultInstanceProfile"
+        value = aws_iam_instance_profile.karpenter[0].name
+      }
+    ],
+    var.karpenter.set_values
+  )
 }

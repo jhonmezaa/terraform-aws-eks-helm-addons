@@ -116,71 +116,55 @@ resource "helm_release" "velero" {
   create_namespace = var.velero.create_namespace
   timeout          = var.velero.timeout
 
-  set {
-    name  = "serviceAccount.server.create"
-    value = "true"
-  }
-
-  set {
-    name  = "serviceAccount.server.name"
-    value = "velero"
-  }
-
-  set {
-    name  = "serviceAccount.server.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.velero[0].arn
-  }
-
-  set {
-    name  = "configuration.provider"
-    value = "aws"
-  }
-
-  dynamic "set" {
-    for_each = var.velero.backup_bucket != null ? [1] : []
-
-    content {
-      name  = "configuration.backupStorageLocation.bucket"
-      value = var.velero.backup_bucket
-    }
-  }
-
-  set {
-    name  = "configuration.backupStorageLocation.config.region"
-    value = data.aws_region.current.id
-  }
-
-  set {
-    name  = "configuration.volumeSnapshotLocation.config.region"
-    value = data.aws_region.current.id
-  }
-
-  set {
-    name  = "initContainers[0].name"
-    value = "velero-plugin-for-aws"
-  }
-
-  set {
-    name  = "initContainers[0].image"
-    value = "velero/velero-plugin-for-aws:v1.9.0"
-  }
-
-  set {
-    name  = "initContainers[0].volumeMounts[0].mountPath"
-    value = "/target"
-  }
-
-  set {
-    name  = "initContainers[0].volumeMounts[0].name"
-    value = "plugins"
-  }
-
-  dynamic "set" {
-    for_each = var.velero.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "serviceAccount.server.create"
+        value = "true"
+      },
+      {
+        name  = "serviceAccount.server.name"
+        value = "velero"
+      },
+      {
+        name  = "serviceAccount.server.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.velero[0].arn
+      },
+      {
+        name  = "configuration.provider"
+        value = "aws"
+      },
+      {
+        name  = "configuration.backupStorageLocation.config.region"
+        value = data.aws_region.current.id
+      },
+      {
+        name  = "configuration.volumeSnapshotLocation.config.region"
+        value = data.aws_region.current.id
+      },
+      {
+        name  = "initContainers[0].name"
+        value = "velero-plugin-for-aws"
+      },
+      {
+        name  = "initContainers[0].image"
+        value = "velero/velero-plugin-for-aws:v1.9.0"
+      },
+      {
+        name  = "initContainers[0].volumeMounts[0].mountPath"
+        value = "/target"
+      },
+      {
+        name  = "initContainers[0].volumeMounts[0].name"
+        value = "plugins"
+      }
+    ],
+    var.velero.backup_bucket != null ? [
+      {
+        name  = "configuration.backupStorageLocation.bucket"
+        value = var.velero.backup_bucket
+      }
+    ] : [],
+    var.velero.set_values
+  )
 }

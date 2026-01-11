@@ -28,27 +28,21 @@ resource "helm_release" "ingress_nginx" {
   create_namespace = var.ingress_nginx.create_namespace
   timeout          = var.ingress_nginx.timeout
 
-  set {
-    name  = "controller.service.type"
-    value = "LoadBalancer"
-  }
-
-  set {
-    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"
-    value = "nlb"
-  }
-
-  set {
-    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-cross-zone-load-balancing-enabled"
-    value = "true"
-  }
-
-  dynamic "set" {
-    for_each = var.ingress_nginx.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "controller.service.type"
+        value = "LoadBalancer"
+      },
+      {
+        name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"
+        value = "nlb"
+      },
+      {
+        name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-cross-zone-load-balancing-enabled"
+        value = "true"
+      }
+    ],
+    var.ingress_nginx.set_values
+  )
 }

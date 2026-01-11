@@ -29,22 +29,17 @@ resource "helm_release" "metrics_server" {
   create_namespace = var.metrics_server.create_namespace
   timeout          = var.metrics_server.timeout
 
-  set {
-    name  = "args[0]"
-    value = "--kubelet-preferred-address-types=InternalIP"
-  }
-
-  set {
-    name  = "args[1]"
-    value = "--kubelet-insecure-tls"
-  }
-
-  dynamic "set" {
-    for_each = var.metrics_server.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "args[0]"
+        value = "--kubelet-preferred-address-types=InternalIP"
+      },
+      {
+        name  = "args[1]"
+        value = "--kubelet-insecure-tls"
+      }
+    ],
+    var.metrics_server.set_values
+  )
 }
