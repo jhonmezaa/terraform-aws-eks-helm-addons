@@ -101,46 +101,33 @@ resource "helm_release" "external_dns" {
   create_namespace = var.external_dns.create_namespace
   timeout          = var.external_dns.timeout
 
-  set {
-    name  = "serviceAccount.create"
-    value = "true"
-  }
-
-  set {
-    name  = "serviceAccount.name"
-    value = "external-dns"
-  }
-
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.external_dns[0].arn
-  }
-
-  set {
-    name  = "provider"
-    value = "aws"
-  }
-
-  set {
-    name  = "policy"
-    value = "sync"
-  }
-
-  dynamic "set" {
-    for_each = var.external_dns.domain_filters
-
-    content {
-      name  = "domainFilters[${set.key}]"
-      value = set.value
-    }
-  }
-
-  dynamic "set" {
-    for_each = var.external_dns.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "serviceAccount.create"
+        value = "true"
+      },
+      {
+        name  = "serviceAccount.name"
+        value = "external-dns"
+      },
+      {
+        name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.external_dns[0].arn
+      },
+      {
+        name  = "provider"
+        value = "aws"
+      },
+      {
+        name  = "policy"
+        value = "sync"
+      }
+    ],
+    [for idx, domain in var.external_dns.domain_filters : {
+      name  = "domainFilters[${idx}]"
+      value = domain
+    }],
+    var.external_dns.set_values
+  )
 }

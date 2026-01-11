@@ -94,22 +94,17 @@ resource "helm_release" "external_secrets" {
   create_namespace = var.external_secrets.create_namespace
   timeout          = var.external_secrets.timeout
 
-  set {
-    name  = "serviceAccount.name"
-    value = "external-secrets"
-  }
-
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.external_secrets[0].arn
-  }
-
-  dynamic "set" {
-    for_each = var.external_secrets.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "serviceAccount.name"
+        value = "external-secrets"
+      },
+      {
+        name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.external_secrets[0].arn
+      }
+    ],
+    var.external_secrets.set_values
+  )
 }

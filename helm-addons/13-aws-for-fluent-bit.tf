@@ -106,43 +106,33 @@ resource "helm_release" "aws_for_fluent_bit" {
   create_namespace = var.aws_for_fluent_bit.create_namespace
   timeout          = var.aws_for_fluent_bit.timeout
 
-  set {
-    name  = "serviceAccount.create"
-    value = "true"
-  }
-
-  set {
-    name  = "serviceAccount.name"
-    value = "aws-for-fluent-bit"
-  }
-
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.aws_for_fluent_bit[0].arn
-  }
-
-  set {
-    name  = "cloudWatchLogs.region"
-    value = data.aws_region.current.id
-  }
-
-  dynamic "set" {
-    for_each = var.aws_for_fluent_bit.cloudwatch_log_group != null ? [1] : []
-
-    content {
-      name  = "cloudWatchLogs.logGroupName"
-      value = var.aws_for_fluent_bit.cloudwatch_log_group
-    }
-  }
-
-  dynamic "set" {
-    for_each = var.aws_for_fluent_bit.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "serviceAccount.create"
+        value = "true"
+      },
+      {
+        name  = "serviceAccount.name"
+        value = "aws-for-fluent-bit"
+      },
+      {
+        name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.aws_for_fluent_bit[0].arn
+      },
+      {
+        name  = "cloudWatchLogs.region"
+        value = data.aws_region.current.id
+      }
+    ],
+    var.aws_for_fluent_bit.cloudwatch_log_group != null ? [
+      {
+        name  = "cloudWatchLogs.logGroupName"
+        value = var.aws_for_fluent_bit.cloudwatch_log_group
+      }
+    ] : [],
+    var.aws_for_fluent_bit.set_values
+  )
 
   depends_on = [
     aws_cloudwatch_log_group.fluent_bit

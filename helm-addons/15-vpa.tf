@@ -27,14 +27,7 @@ resource "helm_release" "vpa" {
   create_namespace = var.vpa.create_namespace
   timeout          = var.vpa.timeout
 
-  dynamic "set" {
-    for_each = var.vpa.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = var.vpa.set_values
 
   # VPA requires Metrics Server
   depends_on = [

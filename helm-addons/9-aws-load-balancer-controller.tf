@@ -231,42 +231,33 @@ resource "helm_release" "aws_load_balancer_controller" {
   create_namespace = var.aws_load_balancer_controller.create_namespace
   timeout          = var.aws_load_balancer_controller.timeout
 
-  set {
-    name  = "clusterName"
-    value = var.eks_name
-  }
-
-  set {
-    name  = "serviceAccount.create"
-    value = "true"
-  }
-
-  set {
-    name  = "serviceAccount.name"
-    value = "aws-load-balancer-controller"
-  }
-
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.aws_load_balancer_controller[0].arn
-  }
-
-  set {
-    name  = "region"
-    value = data.aws_region.current.id
-  }
-
-  set {
-    name  = "vpcId"
-    value = data.aws_caller_identity.current.account_id # This will be overridden by user if needed
-  }
-
-  dynamic "set" {
-    for_each = var.aws_load_balancer_controller.set_values
-
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "clusterName"
+        value = var.eks_name
+      },
+      {
+        name  = "serviceAccount.create"
+        value = "true"
+      },
+      {
+        name  = "serviceAccount.name"
+        value = "aws-load-balancer-controller"
+      },
+      {
+        name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.aws_load_balancer_controller[0].arn
+      },
+      {
+        name  = "region"
+        value = data.aws_region.current.id
+      },
+      {
+        name  = "vpcId"
+        value = data.aws_caller_identity.current.account_id
+      }
+    ],
+    var.aws_load_balancer_controller.set_values
+  )
 }
