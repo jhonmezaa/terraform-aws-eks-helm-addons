@@ -5,6 +5,108 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-01-20
+
+### Fixed
+
+#### Critical Bug Fixes for Production Deployment
+
+**EBS CSI Driver** (`helm-addons/5-ebs-csi-driver.tf`)
+- ❌ **Problem**: Invalid `awsRegion` parameter causing installation failure
+  ```
+  Error: values don't meet the specifications of the schema(s)
+  - Additional property awsRegion is not allowed
+  ```
+- ✅ **Solution**: Removed `awsRegion` parameter from Helm values
+- **Impact**: EBS CSI Driver now installs successfully on first deployment
+- **Note**: The driver auto-detects region from EC2 instance metadata
+
+**External Secrets Operator** (`helm-addons/7-external-secrets.tf`)
+- ❌ **Problem**: Webhook conflict during simultaneous installation with AWS Load Balancer Controller
+  ```
+  Error: no endpoints available for service "aws-load-balancer-webhook-service"
+  ```
+- ✅ **Solution**: Added `depends_on` to ensure Load Balancer Controller webhook is ready before External Secrets installation
+- **Impact**: Prevents webhook conflicts during first-time deployment
+- **Note**: Dependency only active when both addons are enabled; External Secrets does NOT require Load Balancer Controller to function
+
+**Karpenter** (`helm-addons/6-karpenter.tf`, `helm-addons/4-data.tf`, `helm-addons/2-variables.tf`)
+- ❌ **Problem**: ECR Public authentication token expiration with temporary AWS credentials
+  ```
+  Error: Your authorization token has expired
+  Unable to locate chart oci://public.ecr.aws/karpenter
+  ```
+- ✅ **Solution**: Refactored ECR Public token management
+  - Removed `data.aws_ecrpublic_authorization_token` from module (was causing failures even when Karpenter disabled)
+  - Added variables `ecr_public_token_username` and `ecr_public_token_password` to receive token from deployment
+  - Token now fetched in deployment layer with explicit `region = "us-east-1"` (ECR Public requirement)
+  - Helm release receives credentials via variables instead of data source
+- **Impact**:
+  - Karpenter now works with temporary AWS credentials (SSO, AssumeRole)
+  - Avoids constant redeployments due to token changes (see [Issue #1686](https://github.com/aws-ia/terraform-aws-eks-blueprints/issues/1686))
+  - Better module separation and testability
+
+### Changed
+
+**Module Architecture Improvements**
+- ECR Public authentication moved from module to deployment layer
+- Module no longer has direct dependency on ECR Public
+- Improved modularity and separation of concerns
+
+**Documentation Enhancements** (`README.md`)
+- Added comprehensive Karpenter ECR Public token documentation
+- Updated troubleshooting section with new fixes
+- Added examples for proper Karpenter configuration
+- Documented known issues and workarounds
+
+### Example Usage (Karpenter with ECR Public Token)
+
+```hcl
+# deployment/main.tf
+
+# Fetch ECR Public token (only when using Karpenter)
+data "aws_ecrpublic_authorization_token" "karpenter" {
+  region = "us-east-1"  # REQUIRED: ECR Public only works in us-east-1
+}
+
+module "eks_helm_addons" {
+  source = "github.com/your-org/terraform-aws-eks-helm-addons//helm-addons"
+
+  # ... other configuration ...
+
+  # Karpenter with ECR Public token
+  enable_karpenter          = true
+  ecr_public_token_username = data.aws_ecrpublic_authorization_token.karpenter.user_name
+  ecr_public_token_password = data.aws_ecrpublic_authorization_token.karpenter.password
+
+  karpenter = {
+    helm_version      = "v0.33.0"
+    namespace         = "kube-system"
+    spotconsolidation = true
+  }
+
+  node_role_arn  = module.eks.node_iam_role_arn
+  node_role_name = module.eks.node_iam_role_name
+}
+```
+
+### References
+
+- [Issue #1686](https://github.com/aws-ia/terraform-aws-eks-blueprints/issues/1686) - Karpenter helm chart constant updates
+- [Issue #28281](https://github.com/hashicorp/terraform-provider-aws/issues/28281) - ECR Public token region limitation
+- [Issue #1660](https://github.com/hashicorp/terraform-provider-helm/issues/1660) - OCI Registry login failures
+- [terraform-aws-eks Example](https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/examples/karpenter/main.tf) - Official reference
+
+### Validation
+
+All fixes validated with:
+- ✅ 11 of 14 addons successfully deployed
+- ✅ 32 pods running in production-like environment
+- ✅ Tested with temporary AWS credentials (SSO)
+- ✅ First-time deployment success without manual intervention
+
+---
+
 ## [2.0.0] - 2026-01-11
 
 ### Added

@@ -94,6 +94,14 @@ resource "helm_release" "external_secrets" {
   create_namespace = var.external_secrets.create_namespace
   timeout          = var.external_secrets.timeout
 
+  # Wait for AWS Load Balancer Controller to be ready to avoid webhook conflicts
+  # NOTE: This dependency is only relevant when both addons are enabled.
+  # External Secrets does NOT require the Load Balancer Controller to function.
+  # This prevents webhook conflicts during simultaneous first-time installation.
+  depends_on = [
+    helm_release.aws_load_balancer_controller
+  ]
+
   set = concat(
     [
       {

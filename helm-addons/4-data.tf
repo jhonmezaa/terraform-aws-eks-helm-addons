@@ -13,10 +13,9 @@ data "aws_iam_openid_connect_provider" "this" {
   arn = var.openid_provider_arn
 }
 
-# ECR Public authorization token
-# Required for pulling Karpenter images from ECR Public registry
-# NOTE: Only available in us-east-1 region
-data "aws_ecrpublic_authorization_token" "token" {}
+# ECR Public authorization token is now fetched in the parent module
+# and passed via variables: var.ecr_public_token_username and var.ecr_public_token_password
+# This avoids credential expiration issues with Terraform state
 
 # Current AWS partition (aws, aws-cn, aws-us-gov)
 # Used for constructing ARNs in a partition-agnostic way

@@ -225,7 +225,7 @@ output "aws_for_fluent_bit_helm_release_version" {
 
 output "aws_for_fluent_bit_log_group_name" {
   description = "Name of the CloudWatch log group (if created by module)"
-  value       = var.enable_aws_for_fluent_bit && var.aws_for_fluent_bit.create_log_group ? aws_cloudwatch_log_group.fluent_bit[0].name : null
+  value       = var.enable_aws_for_fluent_bit && var.aws_for_fluent_bit.cloudwatch_log_group != null ? var.aws_for_fluent_bit.cloudwatch_log_group : null
 }
 
 # =============================================================================

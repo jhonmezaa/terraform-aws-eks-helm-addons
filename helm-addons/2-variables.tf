@@ -205,6 +205,19 @@ variable "enable_karpenter" {
   default     = false
 }
 
+variable "ecr_public_token_username" {
+  description = "ECR Public authorization token username for Karpenter OCI registry"
+  type        = string
+  default     = ""
+}
+
+variable "ecr_public_token_password" {
+  description = "ECR Public authorization token password for Karpenter OCI registry"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "karpenter" {
   description = "Karpenter addon configuration"
   type = object({
