@@ -121,10 +121,6 @@ resource "helm_release" "csi_ebs_driver" {
     {
       name  = "controller.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
       value = aws_iam_role.csi_ebs_driver[0].arn
-    },
-    {
-      name  = "awsRegion"
-      value = var.eks_region
     }
   ]
 }

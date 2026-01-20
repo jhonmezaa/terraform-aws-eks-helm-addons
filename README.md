@@ -277,7 +277,7 @@ aws_for_fluent_bit = {
 
 ### Karpenter
 
-Next-generation Kubernetes node autoscaler.
+Next-generation Kubernetes node autoscaler with ECR Public OCI registry support.
 
 **Features**:
 - Fast node provisioning (<1 minute)
@@ -285,18 +285,45 @@ Next-generation Kubernetes node autoscaler.
 - Bin-packing optimization
 - Custom instance type selection
 
-**Configuration**:
+**⚠️ Important: ECR Public Authentication Required**
+
+Karpenter is distributed via ECR Public OCI registry and requires authentication. The token must be fetched in your deployment layer and passed to the module:
+
 ```hcl
-enable_karpenter = true
-karpenter = {
-  helm_version      = "v0.33.0"
-  spotconsolidation = true
+# In your deployment/main.tf
+
+# 1. Fetch ECR Public token (MUST use us-east-1)
+data "aws_ecrpublic_authorization_token" "karpenter" {
+  region = "us-east-1"  # ECR Public only available in us-east-1
 }
 
-# Required: node role ARN and name
-node_role_arn  = module.eks.node_iam_role_arn
-node_role_name = module.eks.node_iam_role_name
+# 2. Pass token to module
+module "eks_helm_addons" {
+  source = "./helm-addons"
+
+  # ... other configuration ...
+
+  # Karpenter with ECR Public token
+  enable_karpenter          = true
+  ecr_public_token_username = data.aws_ecrpublic_authorization_token.karpenter.user_name
+  ecr_public_token_password = data.aws_ecrpublic_authorization_token.karpenter.password
+
+  karpenter = {
+    helm_version      = "v0.33.0"
+    spotconsolidation = true
+  }
+
+  # Required: node role ARN and name
+  node_role_arn  = module.eks.node_iam_role_arn
+  node_role_name = module.eks.node_iam_role_name
+}
 ```
+
+**Why is this required?**
+- Karpenter chart is hosted at `oci://public.ecr.aws/karpenter`
+- ECR Public requires authentication for OCI registry access
+- Token must be fetched with `region = "us-east-1"` (only region where ECR Public exists)
+- Works with temporary AWS credentials (SSO, AssumeRole)
 
 ### External Secrets Operator
 
@@ -614,6 +641,54 @@ terraform apply
 1. Verify node role ARN/name are correct
 2. Check Karpenter logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=karpenter`
 3. Ensure instance profile exists: `aws iam get-instance-profile --instance-profile-name <name>`
+
+### Karpenter Installation Failed: ECR Public Token Expired
+
+**Symptoms**:
+```
+Error: Your authorization token has expired
+Unable to locate chart oci://public.ecr.aws/karpenter
+```
+
+**Solutions**:
+1. **Verify ECR Public token is passed correctly**:
+   ```hcl
+   data "aws_ecrpublic_authorization_token" "karpenter" {
+     region = "us-east-1"  # MUST be us-east-1
+   }
+
+   module "eks_helm_addons" {
+     ecr_public_token_username = data.aws_ecrpublic_authorization_token.karpenter.user_name
+     ecr_public_token_password = data.aws_ecrpublic_authorization_token.karpenter.password
+   }
+   ```
+
+2. **Ensure AWS credentials are valid**: Check `aws sts get-caller-identity`
+
+3. **Works with temporary credentials**: SSO and AssumeRole credentials are supported
+
+**Related Issues**:
+- [Issue #28281](https://github.com/hashicorp/terraform-provider-aws/issues/28281) - ECR Public only works in us-east-1
+- [Issue #1686](https://github.com/aws-ia/terraform-aws-eks-blueprints/issues/1686) - Token management best practices
+
+### EBS CSI Driver Installation Failed
+
+**Symptoms**:
+```
+Error: values don't meet the specifications of the schema(s)
+- Additional property awsRegion is not allowed
+```
+
+**Solution**: This was fixed in v2.1.0. The `awsRegion` parameter has been removed as the driver auto-detects the region from EC2 metadata. Update to v2.1.0 or later.
+
+### External Secrets Webhook Conflict
+
+**Symptoms**:
+```
+Error: no endpoints available for service "aws-load-balancer-webhook-service"
+```
+
+**Solution**: This was fixed in v2.1.0 by adding proper dependency ordering. External Secrets now waits for AWS Load Balancer Controller webhook to be ready. Update to v2.1.0 or later.
 
 ### AWS Load Balancer Controller Not Creating ALBs
 
