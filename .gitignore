@@ -32,8 +32,8 @@ terraform.rc
 # Ignore plan files
 *.tfplan
 
-# Ignore lock file (uncomment if you want to ignore it)
-# .terraform.lock.hcl
+# Ignore lock file
+.terraform.lock.hcl
 
 # IDE and editor files
 .vscode/
