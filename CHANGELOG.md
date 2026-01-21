@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-01-21
+
+### Changed
+
+**Repository Configuration**
+- Updated `.gitignore` to exclude `.terraform.lock.hcl` file
+- **Rationale**: Lock files should be managed per deployment environment, not committed to module source
+- **Impact**: Cleaner repository, prevents lock file conflicts across different Terraform versions
+
+---
+
 ## [2.1.0] - 2026-01-20
 
 ### Fixed
