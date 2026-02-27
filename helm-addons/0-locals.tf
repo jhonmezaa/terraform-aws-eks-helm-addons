@@ -31,8 +31,8 @@ locals {
   )
 
   # Common resource naming prefix
-  name_prefix = "${local.region_prefix}-role-eks-addons"
-  policy_prefix = "${local.region_prefix}-policy-eks-addons"
+  name_prefix             = "${local.region_prefix}-role-eks-addons"
+  policy_prefix           = "${local.region_prefix}-policy-eks-addons"
   instance_profile_prefix = "${local.region_prefix}-instance-profile-eks"
 
   # Common tags

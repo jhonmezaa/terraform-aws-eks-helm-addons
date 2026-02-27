@@ -83,7 +83,7 @@ variable "aws_load_balancer_controller" {
     namespace        = optional(string, "kube-system")
     create_namespace = optional(bool, false)
     timeout          = optional(number, 300)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -108,7 +108,7 @@ variable "metrics_server" {
     namespace        = optional(string, "kube-system")
     create_namespace = optional(bool, false)
     timeout          = optional(number, 300)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -134,7 +134,7 @@ variable "external_dns" {
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
     domain_filters   = optional(list(string), [])
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -160,7 +160,7 @@ variable "cert_manager" {
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
     install_crds     = optional(bool, true)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -187,7 +187,7 @@ variable "aws_for_fluent_bit" {
     timeout                  = optional(number, 300)
     cloudwatch_log_group     = optional(string)
     cloudwatch_log_retention = optional(number, 7)
-    set_values               = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -221,12 +221,12 @@ variable "ecr_public_token_password" {
 variable "karpenter" {
   description = "Karpenter addon configuration"
   type = object({
-    helm_version         = optional(string)
-    namespace            = optional(string, "kube-system")
-    create_namespace     = optional(bool, true)
-    timeout              = optional(number, 300)
-    spotconsolidation    = optional(bool, false)
-    set_values           = optional(list(object({
+    helm_version      = optional(string)
+    namespace         = optional(string, "kube-system")
+    create_namespace  = optional(bool, true)
+    timeout           = optional(number, 300)
+    spotconsolidation = optional(bool, false)
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -264,7 +264,7 @@ variable "keda" {
     namespace        = optional(string, "keda")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -296,7 +296,7 @@ variable "external_secrets" {
     namespace        = optional(string, "external-secrets")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -328,7 +328,7 @@ variable "ebs_csi_driver" {
     namespace        = optional(string, "kube-system")
     create_namespace = optional(bool, false)
     timeout          = optional(number, 300)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -361,7 +361,7 @@ variable "velero" {
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
     backup_bucket    = optional(string)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -386,7 +386,7 @@ variable "vpa" {
     namespace        = optional(string, "vpa")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -407,13 +407,13 @@ variable "enable_aws_node_termination_handler" {
 variable "aws_node_termination_handler" {
   description = "AWS Node Termination Handler addon configuration"
   type = object({
-    helm_version     = optional(string)
-    namespace        = optional(string, "kube-system")
-    create_namespace = optional(bool, false)
-    timeout          = optional(number, 300)
+    helm_version                      = optional(string)
+    namespace                         = optional(string, "kube-system")
+    create_namespace                  = optional(bool, false)
+    timeout                           = optional(number, 300)
     enable_spot_interruption_draining = optional(bool, true)
     enable_scheduled_event_draining   = optional(bool, true)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])
@@ -438,7 +438,7 @@ variable "ingress_nginx" {
     namespace        = optional(string, "ingress-nginx")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
-    set_values       = optional(list(object({
+    set_values = optional(list(object({
       name  = string
       value = string
     })), [])

@@ -94,7 +94,7 @@ resource "aws_iam_instance_profile" "karpenter" {
 
 # Local variables for backwards compatibility
 locals {
-  karpenter_helm_version = coalesce(var.karpenter.helm_version, var.karpenter_helm_version)
+  karpenter_helm_version      = coalesce(var.karpenter.helm_version, var.karpenter_helm_version)
   karpenter_spotconsolidation = coalesce(var.karpenter.spotconsolidation, var.spotconsolidation)
 }
 
