@@ -1,5 +1,44 @@
 # Changelog
 
+## [v3.1.1] - 2026-02-28
+
+### Changed
+
+- Removed dead `data "aws_ecrpublic_authorization_token"` data source from `4-data.tf` (unused since v3.1.0)
+- Updated OCI registry comments in `6-karpenter.tf` and `18-dynatrace.tf` to reflect anonymous pull as default behavior
+
+### Documentation
+
+- Simplified Karpenter README section (removed references to non-existent `ecr_public_token_username`/`ecr_public_token_password` variables)
+- Added "ECR Public OCI Authentication (Optional)" section to README with ephemeral resource pattern for Terraform >= 1.10
+- Updated troubleshooting section for ECR Public rate limiting (replaced expired token guidance)
+- Documented Terraform architectural constraint for provider-level OCI authentication
+
+## [v3.1.0] - 2026-02-28
+
+### Fixed
+
+- Removed per-resource `repository_username`/`repository_password` from Karpenter and Dynatrace helm releases due to Helm provider v3 incompatibility with ECR Public token endpoint (405 Method Not Allowed)
+- OCI charts from ECR Public now use anonymous pull by default
+
+## [v3.0.0] - 2026-02-28
+
+### Added
+
+- **Dynatrace Operator** addon (`18-dynatrace.tf`) - Full-stack observability for Kubernetes clusters via ECR Public OCI registry
+
+### Changed
+
+- **BREAKING**: Migrated from Helm provider v2 (`~> 2.0`) to v3 (`~> 3.0`)
+- Unified ECR Public authentication via `data "aws_ecrpublic_authorization_token"` data source
+- Converted all helm `set {}` blocks to `set = [...]` list syntax for Helm provider v3 compatibility
+
+## [v2.2.0] - 2026-02-28
+
+### Fixed
+
+- Converted Helm `set` attribute back to block syntax for Helm provider v2 compatibility
+
 ## [v2.1.2] - 2026-02-27
 
 ### Changed
