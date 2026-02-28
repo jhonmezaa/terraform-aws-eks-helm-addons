@@ -88,7 +88,7 @@ resource "aws_iam_role_policy_attachment" "keda" {
 
 # Local variable for backwards compatibility
 locals {
-  keda_helm_version = coalesce(var.keda.helm_version, var.keda_helm_version)
+  keda_helm_version = try(coalesce(var.keda.helm_version, var.keda_helm_version), null)
 }
 
 resource "helm_release" "keda" {
@@ -103,26 +103,21 @@ resource "helm_release" "keda" {
   create_namespace = var.keda.create_namespace
   timeout          = var.keda.timeout
 
-  set {
-    name  = "rbac.serviceAccount.name"
-    value = "keda"
-  }
-
-  set {
-    name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.keda[0].arn
-  }
-
-  set {
-    name  = "autoDiscovery.clusterName"
-    value = var.eks_name
-  }
-
-  dynamic "set" {
-    for_each = var.keda.set_values
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "rbac.serviceAccount.name"
+        value = "keda"
+      },
+      {
+        name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.keda[0].arn
+      },
+      {
+        name  = "autoDiscovery.clusterName"
+        value = var.eks_name
+      },
+    ],
+    var.keda.set_values
+  )
 }

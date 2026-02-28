@@ -99,28 +99,38 @@ resource "aws_iam_role_policy_attachment" "csi_ebs_driver" {
   policy_arn = aws_iam_policy.csi_ebs_driver[0].arn
 }
 
+# Local variable for backwards compatibility
+locals {
+  ebs_csi_driver_helm_version = try(coalesce(var.ebs_csi_driver.helm_version, var.ebs_csi_driver_helm_version), null)
+}
+
 resource "helm_release" "csi_ebs_driver" {
   count = var.enable_ebs_csi_driver ? 1 : 0
 
   name = "ebs-csi-driver"
 
-  repository = "https://kubernetes-sigs.github.io/aws-ebs-csi-driver"
-  chart      = "aws-ebs-csi-driver"
-  namespace  = "kube-system"
-  version    = var.ebs_csi_driver_helm_version
+  repository       = "https://kubernetes-sigs.github.io/aws-ebs-csi-driver"
+  chart            = "aws-ebs-csi-driver"
+  namespace        = var.ebs_csi_driver.namespace
+  version          = local.ebs_csi_driver_helm_version
+  create_namespace = var.ebs_csi_driver.create_namespace
+  timeout          = var.ebs_csi_driver.timeout
 
-  set {
-    name  = "controller.serviceAccount.create"
-    value = "true"
-  }
-
-  set {
-    name  = "controller.serviceAccount.name"
-    value = "ebs-csi-controller-sa"
-  }
-
-  set {
-    name  = "controller.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.csi_ebs_driver[0].arn
-  }
+  set = concat(
+    [
+      {
+        name  = "controller.serviceAccount.create"
+        value = "true"
+      },
+      {
+        name  = "controller.serviceAccount.name"
+        value = "ebs-csi-controller-sa"
+      },
+      {
+        name  = "controller.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.csi_ebs_driver[0].arn
+      },
+    ],
+    var.ebs_csi_driver.set_values
+  )
 }

@@ -94,8 +94,8 @@ resource "aws_iam_instance_profile" "karpenter" {
 
 # Local variables for backwards compatibility
 locals {
-  karpenter_helm_version      = coalesce(var.karpenter.helm_version, var.karpenter_helm_version)
-  karpenter_spotconsolidation = coalesce(var.karpenter.spotconsolidation, var.spotconsolidation)
+  karpenter_helm_version      = try(coalesce(var.karpenter.helm_version, var.karpenter_helm_version), null)
+  karpenter_spotconsolidation = try(coalesce(var.karpenter.spotconsolidation, var.spotconsolidation), false)
 }
 
 resource "helm_release" "karpenter" {
@@ -103,48 +103,35 @@ resource "helm_release" "karpenter" {
 
   name = "karpenter"
 
-  # OCI registry authentication
-  # NOTE: The token data source must be passed from the parent module
-  # See variable var.ecr_public_token_username and var.ecr_public_token_password
+  # OCI registry authentication via ECR Public datasource (internal to module)
   repository          = "oci://public.ecr.aws/karpenter"
-  repository_username = var.ecr_public_token_username
-  repository_password = var.ecr_public_token_password
+  repository_username = data.aws_ecrpublic_authorization_token.token.user_name
+  repository_password = data.aws_ecrpublic_authorization_token.token.password
   chart               = "karpenter"
   namespace           = var.karpenter.namespace
   version             = local.karpenter_helm_version
   create_namespace    = var.karpenter.create_namespace
   timeout             = var.karpenter.timeout
 
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.karpenter_controller[0].arn
-  }
-
-  set {
-    name  = "settings.clusterName"
-    value = var.eks_name
-  }
-
-  set {
-    name  = "settings.clusterEndpoint"
-    value = var.eks_cluster_endpoint
-  }
-
-  set {
-    name  = "settings.featureGates.spotToSpotConsolidation"
-    value = tostring(local.karpenter_spotconsolidation)
-  }
-
-  set {
-    name  = "aws.defaultInstanceProfile"
-    value = aws_iam_instance_profile.karpenter[0].name
-  }
-
-  dynamic "set" {
-    for_each = var.karpenter.set_values
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.karpenter_controller[0].arn
+      },
+      {
+        name  = "settings.clusterName"
+        value = var.eks_name
+      },
+      {
+        name  = "settings.clusterEndpoint"
+        value = var.eks_cluster_endpoint
+      },
+      {
+        name  = "settings.featureGates.spotToSpotConsolidation"
+        value = tostring(local.karpenter_spotconsolidation)
+      },
+    ],
+    var.karpenter.set_values
+  )
 }
