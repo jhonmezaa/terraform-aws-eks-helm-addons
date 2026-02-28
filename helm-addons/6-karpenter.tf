@@ -103,15 +103,17 @@ resource "helm_release" "karpenter" {
 
   name = "karpenter"
 
-  # OCI registry authentication via ECR Public datasource (internal to module)
-  repository          = "oci://public.ecr.aws/karpenter"
-  repository_username = data.aws_ecrpublic_authorization_token.token.user_name
-  repository_password = data.aws_ecrpublic_authorization_token.token.password
-  chart               = "karpenter"
-  namespace           = var.karpenter.namespace
-  version             = local.karpenter_helm_version
-  create_namespace    = var.karpenter.create_namespace
-  timeout             = var.karpenter.timeout
+  # OCI registry - authentication handled via provider-level registries config
+  # NOTE: repository_username/repository_password removed due to Helm provider v3
+  # incompatibility with ECR Public token endpoint (405 Method Not Allowed).
+  # The caller must configure registries = [{ url = "oci://public.ecr.aws", ... }]
+  # in the helm provider block.
+  repository       = "oci://public.ecr.aws/karpenter"
+  chart            = "karpenter"
+  namespace        = var.karpenter.namespace
+  version          = local.karpenter_helm_version
+  create_namespace = var.karpenter.create_namespace
+  timeout          = var.karpenter.timeout
 
   set = concat(
     [
