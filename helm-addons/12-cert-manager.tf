@@ -28,13 +28,16 @@ resource "helm_release" "cert_manager" {
   create_namespace = var.cert_manager.create_namespace
   timeout          = var.cert_manager.timeout
 
-  set = concat(
-    [
-      {
-        name  = "installCRDs"
-        value = tostring(var.cert_manager.install_crds)
-      }
-    ],
-    var.cert_manager.set_values
-  )
+  set {
+    name  = "installCRDs"
+    value = tostring(var.cert_manager.install_crds)
+  }
+
+  dynamic "set" {
+    for_each = var.cert_manager.set_values
+    content {
+      name  = set.value.name
+      value = set.value.value
+    }
+  }
 }
