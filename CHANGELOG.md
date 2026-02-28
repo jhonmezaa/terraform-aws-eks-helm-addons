@@ -3,8 +3,8 @@
 ## [v2.1.2] - 2026-02-27
 
 ### Changed
-- Standardize Terraform `required_version` to `~> 1.0` across module and examples
 
+- Standardize Terraform `required_version` to `~> 1.0` across module and examples
 
 All notable changes to this project will be documented in this file.
 
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 **Repository Configuration**
+
 - Updated `.gitignore` to exclude `.terraform.lock.hcl` file
 - **Rationale**: Lock files should be managed per deployment environment, not committed to module source
 - **Impact**: Cleaner repository, prevents lock file conflicts across different Terraform versions
@@ -29,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Critical Bug Fixes for Production Deployment
 
 **EBS CSI Driver** (`helm-addons/5-ebs-csi-driver.tf`)
+
 - ❌ **Problem**: Invalid `awsRegion` parameter causing installation failure
   ```
   Error: values don't meet the specifications of the schema(s)
@@ -39,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Note**: The driver auto-detects region from EC2 instance metadata
 
 **External Secrets Operator** (`helm-addons/7-external-secrets.tf`)
+
 - ❌ **Problem**: Webhook conflict during simultaneous installation with AWS Load Balancer Controller
   ```
   Error: no endpoints available for service "aws-load-balancer-webhook-service"
@@ -48,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Note**: Dependency only active when both addons are enabled; External Secrets does NOT require Load Balancer Controller to function
 
 **Karpenter** (`helm-addons/6-karpenter.tf`, `helm-addons/4-data.tf`, `helm-addons/2-variables.tf`)
+
 - ❌ **Problem**: ECR Public authentication token expiration with temporary AWS credentials
   ```
   Error: Your authorization token has expired
@@ -66,11 +70,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 **Module Architecture Improvements**
+
 - ECR Public authentication moved from module to deployment layer
 - Module no longer has direct dependency on ECR Public
 - Improved modularity and separation of concerns
 
 **Documentation Enhancements** (`README.md`)
+
 - Added comprehensive Karpenter ECR Public token documentation
 - Updated troubleshooting section with new fixes
 - Added examples for proper Karpenter configuration
@@ -117,6 +123,7 @@ module "eks_helm_addons" {
 ### Validation
 
 All fixes validated with:
+
 - ✅ 11 of 14 addons successfully deployed
 - ✅ 32 pods running in production-like environment
 - ✅ Tested with temporary AWS credentials (SSO)
@@ -131,6 +138,7 @@ All fixes validated with:
 #### New Addons (8 total)
 
 **Critical Infrastructure:**
+
 - **AWS Load Balancer Controller** - ALB/NLB ingress management with AWS WAF integration
   - File: `helm-addons/9-aws-load-balancer-controller.tf`
   - Comprehensive IAM policy for ELB, EC2, WAF, Shield, and ACM
@@ -157,6 +165,7 @@ All fixes validated with:
   - Optimized for AWS compared to Fluentd
 
 **High Availability & Disaster Recovery:**
+
 - **Velero** - Backup and disaster recovery
   - File: `helm-addons/14-velero.tf`
   - S3 backup storage with regional configuration
@@ -261,12 +270,14 @@ All fixes validated with:
 To migrate from v1.x to v2.0:
 
 **Option 1: Continue using old variables (no changes required)**
+
 ```hcl
 karpenter_helm_version = "v0.33.0"
 spotconsolidation      = true
 ```
 
 **Option 2: Migrate to new object-based syntax (recommended)**
+
 ```hcl
 karpenter = {
   helm_version      = "v0.33.0"

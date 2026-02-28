@@ -211,19 +211,6 @@ variable "enable_karpenter" {
   default     = false
 }
 
-variable "ecr_public_token_username" {
-  description = "ECR Public authorization token username for Karpenter OCI registry"
-  type        = string
-  default     = ""
-}
-
-variable "ecr_public_token_password" {
-  description = "ECR Public authorization token password for Karpenter OCI registry"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "karpenter" {
   description = "Karpenter addon configuration"
   type = object({
@@ -444,6 +431,7 @@ variable "ingress_nginx" {
     namespace        = optional(string, "ingress-nginx")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
+    wait             = optional(bool, true)
     set_values = optional(list(object({
       name  = string
       value = string
@@ -466,4 +454,37 @@ variable "cluster_autoscaler_helm_version" {
   description = "Version of the Cluster Autoscaler Helm chart (DEPRECATED)"
   type        = string
   default     = "9.43.2"
+}
+
+################################################################################
+# Dynatrace Operator
+################################################################################
+
+variable "enable_dynatrace" {
+  description = "Enable Dynatrace Operator addon"
+  type        = bool
+  default     = false
+}
+
+variable "dynatrace" {
+  description = "Dynatrace Operator addon configuration"
+  type = object({
+    helm_version       = optional(string)
+    namespace          = optional(string, "dynatrace")
+    create_namespace   = optional(bool, true)
+    timeout            = optional(number, 300)
+    csi_driver_enabled = optional(bool, true)
+    set_values = optional(list(object({
+      name  = string
+      value = string
+    })), [])
+  })
+  default = {}
+}
+
+# Backwards compatibility
+variable "dynatrace_helm_version" {
+  description = "DEPRECATED: Use dynatrace.helm_version instead"
+  type        = string
+  default     = null
 }

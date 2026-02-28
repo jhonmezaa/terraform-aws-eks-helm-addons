@@ -100,23 +100,22 @@ resource "helm_release" "cluster_autoscaler" {
   namespace  = "kube-system"
   version    = var.cluster_autoscaler_helm_version
 
-  set {
-    name  = "rbac.serviceAccount.name"
-    value = "cluster-autoscaler"
-  }
-
-  set {
-    name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.cluster_autoscaler[0].arn
-  }
-
-  set {
-    name  = "autoDiscovery.clusterName"
-    value = var.eks_name
-  }
-
-  set {
-    name  = "awsRegion"
-    value = var.eks_region
-  }
+  set = [
+    {
+      name  = "rbac.serviceAccount.name"
+      value = "cluster-autoscaler"
+    },
+    {
+      name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+      value = aws_iam_role.cluster_autoscaler[0].arn
+    },
+    {
+      name  = "autoDiscovery.clusterName"
+      value = var.eks_name
+    },
+    {
+      name  = "awsRegion"
+      value = var.eks_region
+    },
+  ]
 }

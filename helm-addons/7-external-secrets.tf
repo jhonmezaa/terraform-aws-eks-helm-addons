@@ -79,7 +79,7 @@ resource "aws_iam_role_policy_attachment" "external_secrets" {
 
 # Local variable for backwards compatibility
 locals {
-  external_secrets_helm_version = coalesce(var.external_secrets.helm_version, var.external_secrets_helm_version)
+  external_secrets_helm_version = try(coalesce(var.external_secrets.helm_version, var.external_secrets_helm_version), null)
 }
 
 resource "helm_release" "external_secrets" {
@@ -102,21 +102,17 @@ resource "helm_release" "external_secrets" {
     helm_release.aws_load_balancer_controller
   ]
 
-  set {
-    name  = "serviceAccount.name"
-    value = "external-secrets"
-  }
-
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.external_secrets[0].arn
-  }
-
-  dynamic "set" {
-    for_each = var.external_secrets.set_values
-    content {
-      name  = set.value.name
-      value = set.value.value
-    }
-  }
+  set = concat(
+    [
+      {
+        name  = "serviceAccount.name"
+        value = "external-secrets"
+      },
+      {
+        name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        value = aws_iam_role.external_secrets[0].arn
+      },
+    ],
+    var.external_secrets.set_values
+  )
 }

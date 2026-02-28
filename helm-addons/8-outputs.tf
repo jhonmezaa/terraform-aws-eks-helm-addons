@@ -303,3 +303,17 @@ output "ingress_nginx_helm_release_version" {
   description = "Version of the Ingress Nginx Helm release"
   value       = var.enable_ingress_nginx ? helm_release.ingress_nginx[0].version : null
 }
+
+# =============================================================================
+# Dynatrace Operator Outputs
+# =============================================================================
+
+output "dynatrace_helm_release_name" {
+  description = "Name of the Dynatrace Operator Helm release"
+  value       = var.enable_dynatrace ? helm_release.dynatrace_operator[0].name : null
+}
+
+output "dynatrace_helm_release_version" {
+  description = "Version of the Dynatrace Operator Helm release"
+  value       = var.enable_dynatrace ? helm_release.dynatrace_operator[0].version : null
+}

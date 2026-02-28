@@ -7,6 +7,7 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 ### Comprehensive Addon Support (13 addons)
 
 **Critical Infrastructure** (⭐⭐⭐):
+
 - ✅ AWS Load Balancer Controller - ALB/NLB ingress management
 - ✅ Metrics Server - HPA/VPA resource metrics
 - ✅ Karpenter - Next-generation node autoscaling
@@ -14,19 +15,23 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 - ✅ Cert-Manager - Automated TLS certificate management
 
 **Observability & Logging**:
+
 - ✅ AWS for Fluent Bit - CloudWatch Logs integration
 - ✅ Vertical Pod Autoscaler (VPA) - Resource optimization
 
 **Security & Secrets**:
+
 - ✅ External Secrets Operator - AWS Secrets Manager sync
 - ✅ KEDA - Event-driven autoscaling
 
 **High Availability & DR**:
+
 - ✅ Velero - Backup and disaster recovery
 - ✅ AWS Node Termination Handler - Graceful spot termination
 - ✅ Ingress Nginx - NGINX-based ingress controller
 
 **Deprecated**:
+
 - ⚠️ Cluster Autoscaler - Use Karpenter instead
 
 ### Advanced Features
@@ -40,12 +45,12 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | ~> 1.0 |
-| aws | ~> 6.0 |
-| helm | ~> 2.0 |
-| kubernetes | ~> 2.0 |
+| Name       | Version |
+| ---------- | ------- |
+| terraform  | ~> 1.0  |
+| aws        | ~> 6.0  |
+| helm       | ~> 3.0  |
+| kubernetes | ~> 2.0  |
 
 ## Usage
 
@@ -178,6 +183,7 @@ module "eks_helm_addons" {
 Manages AWS Elastic Load Balancers for Kubernetes clusters.
 
 **Features**:
+
 - ALB Ingress support with advanced routing
 - NLB Service type LoadBalancer
 - IP and instance targeting modes
@@ -185,6 +191,7 @@ Manages AWS Elastic Load Balancers for Kubernetes clusters.
 - SSL/TLS termination
 
 **Configuration**:
+
 ```hcl
 enable_aws_load_balancer_controller = true
 aws_load_balancer_controller = {
@@ -205,12 +212,14 @@ aws_load_balancer_controller = {
 Required for Horizontal Pod Autoscaler (HPA) and `kubectl top` commands.
 
 **Features**:
+
 - Provides `metrics.k8s.io` API
 - Essential for HPA
 - Required for VPA
 - No IRSA required (reads from kubelet)
 
 **Configuration**:
+
 ```hcl
 enable_metrics_server = true
 metrics_server = {
@@ -223,12 +232,14 @@ metrics_server = {
 Automatically manages Route53 DNS records for Services and Ingresses.
 
 **Features**:
+
 - Automatic DNS record creation/deletion
 - Multiple hosted zone support
 - Domain filtering
 - TXT record ownership tracking
 
 **Configuration**:
+
 ```hcl
 enable_external_dns = true
 external_dns = {
@@ -242,12 +253,14 @@ external_dns = {
 Automates TLS certificate management.
 
 **Features**:
+
 - Let's Encrypt integration
 - Automatic certificate renewal
 - Multiple issuer support
 - Kubernetes native CRDs
 
 **Configuration**:
+
 ```hcl
 enable_cert_manager = true
 cert_manager = {
@@ -261,12 +274,14 @@ cert_manager = {
 Lightweight log forwarder to CloudWatch Logs.
 
 **Features**:
+
 - Optimized for AWS
 - CloudWatch Logs integration
 - More efficient than Fluentd
 - Filter and transform logs
 
 **Configuration**:
+
 ```hcl
 enable_aws_for_fluent_bit = true
 aws_for_fluent_bit = {
@@ -280,6 +295,7 @@ aws_for_fluent_bit = {
 Next-generation Kubernetes node autoscaler with ECR Public OCI registry support.
 
 **Features**:
+
 - Fast node provisioning (<1 minute)
 - Spot instance support
 - Bin-packing optimization
@@ -320,6 +336,7 @@ module "eks_helm_addons" {
 ```
 
 **Why is this required?**
+
 - Karpenter chart is hosted at `oci://public.ecr.aws/karpenter`
 - ECR Public requires authentication for OCI registry access
 - Token must be fetched with `region = "us-east-1"` (only region where ECR Public exists)
@@ -330,12 +347,14 @@ module "eks_helm_addons" {
 Syncs AWS Secrets Manager secrets to Kubernetes.
 
 **Features**:
+
 - AWS Secrets Manager integration
 - Parameter Store support
 - Automatic secret rotation
 - Multiple secret stores
 
 **Configuration**:
+
 ```hcl
 enable_external_secrets = true
 external_secrets = {
@@ -348,12 +367,14 @@ external_secrets = {
 Event-driven autoscaling for Kubernetes workloads.
 
 **Features**:
+
 - Scale based on event sources
 - SQS, CloudWatch, custom metrics
 - HPA integration
 - Azure DevOps agent scaling
 
 **Configuration**:
+
 ```hcl
 enable_keda = true
 keda = {
@@ -366,12 +387,14 @@ keda = {
 Backup and disaster recovery for Kubernetes.
 
 **Features**:
+
 - Cluster resource backup
 - Persistent volume snapshots
 - Scheduled backups
 - Cluster migration support
 
 **Configuration**:
+
 ```hcl
 enable_velero = true
 velero = {
@@ -385,12 +408,14 @@ velero = {
 Automatically adjusts container resource requests/limits.
 
 **Features**:
+
 - Auto resource recommendations
 - Prevent over/under provisioning
 - Recommendation and auto modes
 - Requires Metrics Server
 
 **Configuration**:
+
 ```hcl
 enable_vpa = true
 enable_metrics_server = true  # Required dependency
@@ -401,12 +426,14 @@ enable_metrics_server = true  # Required dependency
 Gracefully drain nodes before EC2 termination.
 
 **Features**:
+
 - Spot interruption handling
 - Scheduled maintenance events
 - ASG lifecycle hooks
 - Graceful pod eviction
 
 **Configuration**:
+
 ```hcl
 enable_aws_node_termination_handler = true
 aws_node_termination_handler = {
@@ -420,12 +447,14 @@ aws_node_termination_handler = {
 NGINX-based Ingress controller.
 
 **Features**:
+
 - NGINX reverse proxy
 - SSL/TLS termination
 - WebSocket support
 - Rate limiting
 
 **Configuration**:
+
 ```hcl
 enable_ingress_nginx = true
 ingress_nginx = {
@@ -437,23 +466,23 @@ ingress_nginx = {
 
 ### Required Variables
 
-| Name | Description | Type |
-|------|-------------|------|
-| `account_name` | Account name for resource naming | `string` |
-| `project_name` | Project name for resource naming | `string` |
-| `eks_name` | EKS cluster name | `string` |
-| `eks_region` | AWS region | `string` |
-| `eks_cluster_endpoint` | EKS API endpoint | `string` |
-| `openid_provider_arn` | OIDC provider ARN for IRSA | `string` |
+| Name                   | Description                      | Type     |
+| ---------------------- | -------------------------------- | -------- |
+| `account_name`         | Account name for resource naming | `string` |
+| `project_name`         | Project name for resource naming | `string` |
+| `eks_name`             | EKS cluster name                 | `string` |
+| `eks_region`           | AWS region                       | `string` |
+| `eks_cluster_endpoint` | EKS API endpoint                 | `string` |
+| `openid_provider_arn`  | OIDC provider ARN for IRSA       | `string` |
 
 ### Optional Variables
 
-| Name | Description | Type | Default |
-|------|-------------|------|---------|
-| `region_prefix` | Region prefix (auto-detected if null) | `string` | `null` |
-| `tags_common` | Common tags for all resources | `map(any)` | `{}` |
-| `node_role_arn` | Node IAM role ARN (for Karpenter) | `string` | `null` |
-| `node_role_name` | Node IAM role name (for Karpenter) | `string` | `null` |
+| Name             | Description                           | Type       | Default |
+| ---------------- | ------------------------------------- | ---------- | ------- |
+| `region_prefix`  | Region prefix (auto-detected if null) | `string`   | `null`  |
+| `tags_common`    | Common tags for all resources         | `map(any)` | `{}`    |
+| `node_role_arn`  | Node IAM role ARN (for Karpenter)     | `string`   | `null`  |
+| `node_role_name` | Node IAM role name (for Karpenter)    | `string`   | `null`  |
 
 ### Addon Configuration Pattern
 
@@ -480,14 +509,15 @@ variable "addon_name" {
 
 Each addon provides consistent outputs:
 
-| Output Pattern | Description |
-|----------------|-------------|
-| `{addon}_role_arn` | IAM role ARN for IRSA |
-| `{addon}_role_name` | IAM role name |
-| `{addon}_helm_release_name` | Helm release name |
+| Output Pattern                 | Description                 |
+| ------------------------------ | --------------------------- |
+| `{addon}_role_arn`             | IAM role ARN for IRSA       |
+| `{addon}_role_name`            | IAM role name               |
+| `{addon}_helm_release_name`    | Helm release name           |
 | `{addon}_helm_release_version` | Deployed Helm chart version |
 
 **Example outputs**:
+
 ```hcl
 output "karpenter_role_arn" {
   value = module.eks_helm_addons.karpenter_role_arn
@@ -509,6 +539,7 @@ All resources follow a standardized naming pattern:
 ```
 
 **Examples**:
+
 - IAM Role: `ause1-role-eks-addons-karpenter-prod-myapp`
 - IAM Policy: `ause1-policy-eks-addons-external-dns-prod-myapp`
 - Instance Profile: `ause1-instance-profile-eks-karpenter-prod-myapp`
@@ -516,6 +547,7 @@ All resources follow a standardized naming pattern:
 ### Region Prefix Mapping
 
 Auto-detected from current AWS region:
+
 - `us-east-1` → `ause1`
 - `us-west-2` → `usw2`
 - `eu-west-1` → `euw1`
@@ -537,12 +569,14 @@ All addons requiring AWS API access use IRSA:
 ### Variable Structure Changes
 
 **Old (deprecated)**:
+
 ```hcl
 karpenter_helm_version = "v0.33.0"
 spotconsolidation      = true
 ```
 
 **New (recommended)**:
+
 ```hcl
 karpenter = {
   helm_version      = "v0.33.0"
@@ -612,6 +646,7 @@ aws_load_balancer_controller = {
 **Symptoms**: Pods can't access AWS services
 
 **Solutions**:
+
 1. Verify OIDC provider exists: `aws eks describe-cluster --name <cluster> --query cluster.identity.oidc.issuer`
 2. Check service account annotation: `kubectl describe sa <sa-name> -n <namespace>`
 3. Verify IAM role trust policy includes correct OIDC provider
@@ -621,6 +656,7 @@ aws_load_balancer_controller = {
 **Symptoms**: `helm_release` stuck in failed state
 
 **Solutions**:
+
 ```bash
 # Check Helm release status
 helm list -A
@@ -638,6 +674,7 @@ terraform apply
 ### Karpenter Not Provisioning Nodes
 
 **Solutions**:
+
 1. Verify node role ARN/name are correct
 2. Check Karpenter logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=karpenter`
 3. Ensure instance profile exists: `aws iam get-instance-profile --instance-profile-name <name>`
@@ -645,13 +682,16 @@ terraform apply
 ### Karpenter Installation Failed: ECR Public Token Expired
 
 **Symptoms**:
+
 ```
 Error: Your authorization token has expired
 Unable to locate chart oci://public.ecr.aws/karpenter
 ```
 
 **Solutions**:
+
 1. **Verify ECR Public token is passed correctly**:
+
    ```hcl
    data "aws_ecrpublic_authorization_token" "karpenter" {
      region = "us-east-1"  # MUST be us-east-1
@@ -668,12 +708,14 @@ Unable to locate chart oci://public.ecr.aws/karpenter
 3. **Works with temporary credentials**: SSO and AssumeRole credentials are supported
 
 **Related Issues**:
+
 - [Issue #28281](https://github.com/hashicorp/terraform-provider-aws/issues/28281) - ECR Public only works in us-east-1
 - [Issue #1686](https://github.com/aws-ia/terraform-aws-eks-blueprints/issues/1686) - Token management best practices
 
 ### EBS CSI Driver Installation Failed
 
 **Symptoms**:
+
 ```
 Error: values don't meet the specifications of the schema(s)
 - Additional property awsRegion is not allowed
@@ -684,6 +726,7 @@ Error: values don't meet the specifications of the schema(s)
 ### External Secrets Webhook Conflict
 
 **Symptoms**:
+
 ```
 Error: no endpoints available for service "aws-load-balancer-webhook-service"
 ```
@@ -693,6 +736,7 @@ Error: no endpoints available for service "aws-load-balancer-webhook-service"
 ### AWS Load Balancer Controller Not Creating ALBs
 
 **Solutions**:
+
 1. Check controller logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller`
 2. Verify VPC has correct tags: `kubernetes.io/cluster/<cluster-name>=owned`
 3. Ensure subnets are tagged: `kubernetes.io/role/elb=1` (public) or `kubernetes.io/role/internal-elb=1` (private)
@@ -732,5 +776,6 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 ---
 
 **Community References**:
+
 - [AWS EKS Blueprints Addons](https://github.com/aws-ia/terraform-aws-eks-blueprints-addons) - Official AWS reference
 - [Amazon EKS Best Practices](https://aws.github.io/aws-eks-best-practices/) - AWS official guide
