@@ -24,16 +24,18 @@ resource "helm_release" "dynatrace_operator" {
   count = var.enable_dynatrace ? 1 : 0
 
   name = "dynatrace-operator"
-  # OCI registry authentication via ECR Public datasource (internal to module)
-  repository          = "oci://public.ecr.aws/dynatrace"
-  repository_username = data.aws_ecrpublic_authorization_token.token.user_name
-  repository_password = data.aws_ecrpublic_authorization_token.token.password
-  chart               = "dynatrace-operator"
-  version             = local.dynatrace_helm_version
-  namespace           = var.dynatrace.namespace
-  create_namespace    = var.dynatrace.create_namespace
-  timeout             = var.dynatrace.timeout
-  atomic              = true
+  # OCI registry - authentication handled via provider-level registries config
+  # NOTE: repository_username/repository_password removed due to Helm provider v3
+  # incompatibility with ECR Public token endpoint (405 Method Not Allowed).
+  # The caller must configure registries = [{ url = "oci://public.ecr.aws", ... }]
+  # in the helm provider block, or the chart will be pulled anonymously.
+  repository       = "oci://public.ecr.aws/dynatrace"
+  chart            = "dynatrace-operator"
+  version          = local.dynatrace_helm_version
+  namespace        = var.dynatrace.namespace
+  create_namespace = var.dynatrace.create_namespace
+  timeout          = var.dynatrace.timeout
+  atomic           = true
 
   set = concat(
     [
