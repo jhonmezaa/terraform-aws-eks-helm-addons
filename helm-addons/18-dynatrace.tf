@@ -3,7 +3,7 @@
 ################################################################################
 #
 # Dynatrace Operator enables full-stack observability for Kubernetes clusters.
-# It uses an OCI registry from ECR Public, requiring an ECR Public auth token.
+# It uses an OCI registry from ECR Public (anonymous pull, no auth required).
 #
 # Features:
 # - Full-stack monitoring with OneAgent
@@ -24,11 +24,10 @@ resource "helm_release" "dynatrace_operator" {
   count = var.enable_dynatrace ? 1 : 0
 
   name = "dynatrace-operator"
-  # OCI registry - authentication handled via provider-level registries config
-  # NOTE: repository_username/repository_password removed due to Helm provider v3
-  # incompatibility with ECR Public token endpoint (405 Method Not Allowed).
-  # The caller must configure registries = [{ url = "oci://public.ecr.aws", ... }]
-  # in the helm provider block, or the chart will be pulled anonymously.
+  # OCI registry from ECR Public - anonymous pull (no auth required).
+  # For high-frequency CI/CD pipelines that hit ECR Public rate limits,
+  # configure registries = [{ url = "oci://public.ecr.aws", ... }] in
+  # the helm provider block using an ephemeral aws_ecrpublic_authorization_token.
   repository       = "oci://public.ecr.aws/dynatrace"
   chart            = "dynatrace-operator"
   version          = local.dynatrace_helm_version

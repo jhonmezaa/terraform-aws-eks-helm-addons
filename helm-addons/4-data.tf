@@ -13,11 +13,6 @@ data "aws_iam_openid_connect_provider" "this" {
   arn = var.openid_provider_arn
 }
 
-# ECR Public authorization token for OCI registries (Karpenter, Dynatrace)
-# NOTE: This datasource requires the AWS provider to be configured for us-east-1,
-# or the caller must have access to ECR Public from their configured region.
-data "aws_ecrpublic_authorization_token" "token" {}
-
 # Current AWS partition (aws, aws-cn, aws-us-gov)
 # Used for constructing ARNs in a partition-agnostic way
 data "aws_partition" "current" {}

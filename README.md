@@ -292,7 +292,7 @@ aws_for_fluent_bit = {
 
 ### Karpenter
 
-Next-generation Kubernetes node autoscaler with ECR Public OCI registry support.
+Next-generation Kubernetes node autoscaler.
 
 **Features**:
 
@@ -301,46 +301,21 @@ Next-generation Kubernetes node autoscaler with ECR Public OCI registry support.
 - Bin-packing optimization
 - Custom instance type selection
 
-**⚠️ Important: ECR Public Authentication Required**
-
-Karpenter is distributed via ECR Public OCI registry and requires authentication. The token must be fetched in your deployment layer and passed to the module:
+**Configuration**:
 
 ```hcl
-# In your deployment/main.tf
-
-# 1. Fetch ECR Public token (MUST use us-east-1)
-data "aws_ecrpublic_authorization_token" "karpenter" {
-  region = "us-east-1"  # ECR Public only available in us-east-1
+enable_karpenter = true
+karpenter = {
+  helm_version      = "1.9.0"
+  spotconsolidation = true
 }
 
-# 2. Pass token to module
-module "eks_helm_addons" {
-  source = "./helm-addons"
-
-  # ... other configuration ...
-
-  # Karpenter with ECR Public token
-  enable_karpenter          = true
-  ecr_public_token_username = data.aws_ecrpublic_authorization_token.karpenter.user_name
-  ecr_public_token_password = data.aws_ecrpublic_authorization_token.karpenter.password
-
-  karpenter = {
-    helm_version      = "v0.33.0"
-    spotconsolidation = true
-  }
-
-  # Required: node role ARN and name
-  node_role_arn  = module.eks.node_iam_role_arn
-  node_role_name = module.eks.node_iam_role_name
-}
+# Required: node role for instance profile
+node_role_arn  = module.eks.node_iam_role_arn
+node_role_name = module.eks.node_iam_role_name
 ```
 
-**Why is this required?**
-
-- Karpenter chart is hosted at `oci://public.ecr.aws/karpenter`
-- ECR Public requires authentication for OCI registry access
-- Token must be fetched with `region = "us-east-1"` (only region where ECR Public exists)
-- Works with temporary AWS credentials (SSO, AssumeRole)
+**OCI Registry**: Karpenter is distributed via `oci://public.ecr.aws/karpenter`. Charts are pulled anonymously by default (no authentication required). See [ECR Public OCI Authentication](#ecr-public-oci-authentication-optional) for optional authenticated access.
 
 ### External Secrets Operator
 
@@ -679,38 +654,16 @@ terraform apply
 2. Check Karpenter logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=karpenter`
 3. Ensure instance profile exists: `aws iam get-instance-profile --instance-profile-name <name>`
 
-### Karpenter Installation Failed: ECR Public Token Expired
+### Karpenter/Dynatrace OCI Chart Pull Rate Limited
 
 **Symptoms**:
 
 ```
-Error: Your authorization token has expired
-Unable to locate chart oci://public.ecr.aws/karpenter
+Error: could not download chart: failed to authorize
+429 Too Many Requests
 ```
 
-**Solutions**:
-
-1. **Verify ECR Public token is passed correctly**:
-
-   ```hcl
-   data "aws_ecrpublic_authorization_token" "karpenter" {
-     region = "us-east-1"  # MUST be us-east-1
-   }
-
-   module "eks_helm_addons" {
-     ecr_public_token_username = data.aws_ecrpublic_authorization_token.karpenter.user_name
-     ecr_public_token_password = data.aws_ecrpublic_authorization_token.karpenter.password
-   }
-   ```
-
-2. **Ensure AWS credentials are valid**: Check `aws sts get-caller-identity`
-
-3. **Works with temporary credentials**: SSO and AssumeRole credentials are supported
-
-**Related Issues**:
-
-- [Issue #28281](https://github.com/hashicorp/terraform-provider-aws/issues/28281) - ECR Public only works in us-east-1
-- [Issue #1686](https://github.com/aws-ia/terraform-aws-eks-blueprints/issues/1686) - Token management best practices
+**Solution**: ECR Public has rate limits for anonymous pulls. Add authenticated access via the Helm provider. See [ECR Public OCI Authentication](#ecr-public-oci-authentication-optional) for configuration details.
 
 ### EBS CSI Driver Installation Failed
 
@@ -740,6 +693,65 @@ Error: no endpoints available for service "aws-load-balancer-webhook-service"
 1. Check controller logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller`
 2. Verify VPC has correct tags: `kubernetes.io/cluster/<cluster-name>=owned`
 3. Ensure subnets are tagged: `kubernetes.io/role/elb=1` (public) or `kubernetes.io/role/internal-elb=1` (private)
+
+## ECR Public OCI Authentication (Optional)
+
+Karpenter and Dynatrace charts are hosted on ECR Public OCI registries (`oci://public.ecr.aws`). By default, charts are pulled **anonymously** without authentication. This works for most deployments.
+
+### When You Need Authentication
+
+| Scenario                                       | Auth Needed? |
+| ---------------------------------------------- | ------------ |
+| Standard deployment                            | No           |
+| CI/CD with occasional deploys                  | No           |
+| High-frequency CI/CD (50+ concurrent deploys)  | Possibly     |
+| Private ECR registries                         | Yes (different mechanism) |
+
+### Adding Authenticated Access
+
+Configure the Helm provider in your **root module** (not inside this module - Terraform requires provider configuration in root modules):
+
+**Terraform >= 1.10 (Recommended)**:
+
+```hcl
+# Tokens are ephemeral - never stored in Terraform state
+ephemeral "aws_ecrpublic_authorization_token" "token" {}
+
+provider "helm" {
+  kubernetes {
+    host                   = data.aws_eks_cluster.this.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.this.token
+  }
+
+  registries = [{
+    url      = "oci://public.ecr.aws"
+    username = ephemeral.aws_ecrpublic_authorization_token.token.user_name
+    password = ephemeral.aws_ecrpublic_authorization_token.token.password
+  }]
+}
+```
+
+**Terraform < 1.10**:
+
+```hcl
+# Note: token is stored in Terraform state
+data "aws_ecrpublic_authorization_token" "token" {}
+
+provider "helm" {
+  kubernetes { ... }
+
+  registries = [{
+    url      = "oci://public.ecr.aws"
+    username = data.aws_ecrpublic_authorization_token.token.user_name
+    password = data.aws_ecrpublic_authorization_token.token.password
+  }]
+}
+```
+
+### Why Can't the Module Handle This Internally?
+
+Terraform requires provider configuration (`provider "helm" { ... }`) in the **root module**. Child modules cannot configure their own providers. This is a fundamental Terraform architectural constraint, not a limitation of this module. The module works out-of-the-box with anonymous pull for all standard use cases.
 
 ## Contributing
 
