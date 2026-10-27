@@ -1,5 +1,13 @@
 # Changelog
 
+## [v3.1.2] - 2026-10-27
+
+### Changed
+
+- Use minimum-only version constraints in the reusable module: AWS provider `~> 6.0` -> `>= 6.0`, Helm provider `~> 3.0` -> `>= 3.0`
+- Set module `required_version` to `>= 1.3` (was `~> 1.0`): the module uses `optional()` object type attributes, introduced in Terraform 1.3
+- Update requirements in README accordingly
+
 ## [v3.1.1] - 2026-02-28
 
 ### Changed
