@@ -135,7 +135,7 @@ resource "helm_release" "velero" {
             {
               provider = "aws"
               config = {
-                region = data.aws_region.current.id
+                region = data.aws_region.current.region
               }
             },
             var.velero.backup_bucket != null ? { bucket = var.velero.backup_bucket } : {}
@@ -145,7 +145,7 @@ resource "helm_release" "velero" {
           {
             provider = "aws"
             config = {
-              region = data.aws_region.current.id
+              region = data.aws_region.current.region
             }
           }
         ]

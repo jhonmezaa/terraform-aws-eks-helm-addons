@@ -79,7 +79,7 @@ resource "aws_iam_policy" "aws_node_termination_handler" {
           "sqs:GetQueueUrl",
           "sqs:GetQueueAttributes"
         ]
-        Resource = "arn:${data.aws_partition.current.partition}:sqs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:*"
+        Resource = "arn:${data.aws_partition.current.partition}:sqs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"
       }
     ]
   })
