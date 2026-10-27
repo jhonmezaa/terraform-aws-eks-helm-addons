@@ -57,7 +57,7 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 
 ```hcl
 module "eks_helm_addons" {
-  source = "github.com/your-org/terraform-aws-eks-helm-addons//helm-addons"
+  source = "github.com/jhonmezaa/terraform-aws-eks-helm-addons//helm-addons?ref=v3.1.3"
 
   account_name = "prod"
   project_name = "myapp"
