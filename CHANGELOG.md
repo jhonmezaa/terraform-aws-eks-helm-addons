@@ -1,5 +1,15 @@
 # Changelog
 
+## [v3.1.3] - 2026-10-27
+
+### Fixed
+
+- Replace deprecated `data.aws_region.current.id` with `data.aws_region.current.region` (deprecated in AWS provider v6)
+
+### Changed
+
+- Remove the `kubernetes` provider from the README requirements table (the module does not declare or use it)
+
 ## [v3.1.2] - 2026-10-27
 
 ### Changed
