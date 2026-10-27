@@ -69,7 +69,7 @@ resource "aws_iam_policy" "aws_for_fluent_bit" {
           "logs:DescribeLogGroups",
           "logs:DescribeLogStreams"
         ]
-        Resource = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:*"
+        Resource = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:*"
       }
     ]
   })
@@ -122,7 +122,7 @@ resource "helm_release" "aws_for_fluent_bit" {
       },
       {
         name  = "cloudWatchLogs.region"
-        value = data.aws_region.current.id
+        value = data.aws_region.current.region
       },
     ],
     var.aws_for_fluent_bit.cloudwatch_log_group != null ? [
