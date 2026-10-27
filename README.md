@@ -47,10 +47,10 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 
 | Name       | Version |
 | ---------- | ------- |
-| terraform  | ~> 1.0  |
-| aws        | ~> 6.0  |
-| helm       | ~> 3.0  |
-| kubernetes | ~> 2.0  |
+| terraform  | >= 1.3  |
+| aws        | >= 6.0  |
+| helm       | >= 3.0  |
+| kubernetes | >= 2.0  |
 
 ## Usage
 
