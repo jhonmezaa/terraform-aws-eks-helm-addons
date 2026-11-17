@@ -19,8 +19,14 @@ data "aws_iam_policy_document" "csi_ebs_driver_trust_policy" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(data.aws_iam_openid_connect_provider.this.url, "https://", "")}:sub"
-      values   = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
+      variable = "${local.oidc_provider_url}:sub"
+      values   = ["system:serviceaccount:${var.ebs_csi_driver.namespace}:ebs-csi-controller-sa"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider_url}:aud"
+      values   = ["sts.amazonaws.com"]
     }
 
     principals {
@@ -34,19 +40,18 @@ resource "aws_iam_role" "csi_ebs_driver" {
   count = var.enable_ebs_csi_driver ? 1 : 0
 
   assume_role_policy = data.aws_iam_policy_document.csi_ebs_driver_trust_policy.json
-  name               = "ause1-role-eks-addons-ebs-csi-driver-${var.account_name}-${var.project_name}"
-
-  tags = var.tags_common
+  name               = substr("${local.role_prefix}-ebs-csi-driver-${local.name_suffix}", 0, 64)
+  tags               = merge(local.common_tags, { Name = substr("${local.role_prefix}-ebs-csi-driver-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "csi_ebs_driver" {
   count = var.enable_ebs_csi_driver ? 1 : 0
 
-  name = "ause1-policy-eks-addons-ebs-csi-driver-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-ebs-csi-driver-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         Sid    = "EBSCSIDriverGeneralPermissions"
         Effect = "Allow",
@@ -86,10 +91,41 @@ resource "aws_iam_policy" "csi_ebs_driver" {
           }
         }
       },
-    ]
+      ],
+      # Customer managed KMS keys for encrypted EBS volumes (opt-in)
+      [for statement in [
+        {
+          Sid    = "EBSCSIDriverKMSGrants"
+          Effect = "Allow"
+          Action = [
+            "kms:CreateGrant",
+            "kms:ListGrants",
+            "kms:RevokeGrant"
+          ]
+          Resource = var.ebs_csi_driver.kms_key_arns
+          Condition = {
+            Bool = {
+              "kms:GrantIsForAWSResource" = "true"
+            }
+          }
+        },
+        {
+          Sid    = "EBSCSIDriverKMSUsage"
+          Effect = "Allow"
+          Action = [
+            "kms:Encrypt",
+            "kms:Decrypt",
+            "kms:ReEncrypt*",
+            "kms:GenerateDataKey*",
+            "kms:DescribeKey"
+          ]
+          Resource = var.ebs_csi_driver.kms_key_arns
+        },
+      ] : statement if length(var.ebs_csi_driver.kms_key_arns) > 0]
+    )
   })
 
-  tags = var.tags_common
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-ebs-csi-driver-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "csi_ebs_driver" {
@@ -115,6 +151,8 @@ resource "helm_release" "csi_ebs_driver" {
   version          = local.ebs_csi_driver_helm_version
   create_namespace = var.ebs_csi_driver.create_namespace
   timeout          = var.ebs_csi_driver.timeout
+
+  values = var.ebs_csi_driver.values
 
   set = concat(
     [

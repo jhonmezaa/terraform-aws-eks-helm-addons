@@ -27,6 +27,8 @@ resource "helm_release" "vpa" {
   create_namespace = var.vpa.create_namespace
   timeout          = var.vpa.timeout
 
+  values = var.vpa.values
+
   set = var.vpa.set_values
 
   # VPA requires Metrics Server

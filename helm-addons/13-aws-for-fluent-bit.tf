@@ -45,16 +45,16 @@ data "aws_iam_policy_document" "aws_for_fluent_bit_trust_policy" {
 resource "aws_iam_role" "aws_for_fluent_bit" {
   count = var.enable_aws_for_fluent_bit ? 1 : 0
 
-  name               = "${local.name_prefix}-aws-fluent-bit-${var.account_name}-${var.project_name}"
+  name               = substr("${local.role_prefix}-aws-fluent-bit-${local.name_suffix}", 0, 64)
   assume_role_policy = data.aws_iam_policy_document.aws_for_fluent_bit_trust_policy.json
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = substr("${local.role_prefix}-aws-fluent-bit-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "aws_for_fluent_bit" {
   count = var.enable_aws_for_fluent_bit ? 1 : 0
 
-  name = "${local.policy_prefix}-aws-fluent-bit-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-aws-fluent-bit-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -74,7 +74,7 @@ resource "aws_iam_policy" "aws_for_fluent_bit" {
     ]
   })
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-aws-fluent-bit-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "aws_for_fluent_bit" {
@@ -90,8 +90,9 @@ resource "aws_cloudwatch_log_group" "fluent_bit" {
 
   name              = var.aws_for_fluent_bit.cloudwatch_log_group
   retention_in_days = var.aws_for_fluent_bit.cloudwatch_log_retention
+  kms_key_id        = var.aws_for_fluent_bit.cloudwatch_log_kms_key_id
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = var.aws_for_fluent_bit.cloudwatch_log_group })
 }
 
 resource "helm_release" "aws_for_fluent_bit" {
@@ -105,6 +106,8 @@ resource "helm_release" "aws_for_fluent_bit" {
   namespace        = var.aws_for_fluent_bit.namespace
   create_namespace = var.aws_for_fluent_bit.create_namespace
   timeout          = var.aws_for_fluent_bit.timeout
+
+  values = var.aws_for_fluent_bit.values
 
   set = concat(
     [

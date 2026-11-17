@@ -38,36 +38,64 @@ data "aws_iam_policy_document" "external_secret_trust_policy" {
 resource "aws_iam_role" "external_secrets" {
   count = var.enable_external_secrets ? 1 : 0
 
-  name               = "${local.name_prefix}-external-secrets-${var.account_name}-${var.project_name}"
+  name               = substr("${local.role_prefix}-external-secrets-${local.name_suffix}", 0, 64)
   assume_role_policy = data.aws_iam_policy_document.external_secret_trust_policy.json
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = substr("${local.role_prefix}-external-secrets-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "external_secrets" {
   count = var.enable_external_secrets ? 1 : 0
 
-  name = "${local.policy_prefix}-external-secrets-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-external-secrets-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid = "ExternalSecretsSecretsManagerPermissions"
-        Action = [
-          "secretsmanager:GetResourcePolicy",
-          "secretsmanager:GetSecretValue",
-          "secretsmanager:DescribeSecret",
-          "secretsmanager:ListSecretVersionIds",
-          "secretsmanager:BatchGetSecretValue"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      }
-    ]
+    Statement = concat(
+      length(var.external_secrets.secrets_manager_arns) > 0 ? [
+        {
+          Sid = "ExternalSecretsSecretsManagerPermissions"
+          Action = [
+            "secretsmanager:GetResourcePolicy",
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret",
+            "secretsmanager:ListSecretVersionIds",
+            "secretsmanager:BatchGetSecretValue"
+          ]
+          Effect   = "Allow"
+          Resource = var.external_secrets.secrets_manager_arns
+        },
+      ] : [],
+      [for statement in [
+        {
+          Sid      = "ExternalSecretsSSMDescribe"
+          Action   = ["ssm:DescribeParameters"]
+          Effect   = "Allow"
+          Resource = "*"
+        },
+        {
+          Sid = "ExternalSecretsSSMRead"
+          Action = [
+            "ssm:GetParameter",
+            "ssm:GetParameters",
+            "ssm:GetParametersByPath"
+          ]
+          Effect   = "Allow"
+          Resource = var.external_secrets.ssm_parameter_arns
+        },
+      ] : statement if length(var.external_secrets.ssm_parameter_arns) > 0],
+      length(var.external_secrets.kms_key_arns) > 0 ? [
+        {
+          Sid      = "ExternalSecretsKMSDecrypt"
+          Action   = ["kms:Decrypt"]
+          Effect   = "Allow"
+          Resource = var.external_secrets.kms_key_arns
+        },
+      ] : []
+    )
   })
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-external-secrets-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "external_secrets" {
@@ -93,6 +121,8 @@ resource "helm_release" "external_secrets" {
   namespace        = var.external_secrets.namespace
   create_namespace = var.external_secrets.create_namespace
   timeout          = var.external_secrets.timeout
+
+  values = var.external_secrets.values
 
   # Wait for AWS Load Balancer Controller to be ready to avoid webhook conflicts
   # NOTE: This dependency is only relevant when both addons are enabled.

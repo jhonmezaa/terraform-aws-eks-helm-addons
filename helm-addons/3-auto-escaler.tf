@@ -21,8 +21,14 @@ data "aws_iam_policy_document" "cluster_autoscaler" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(data.aws_iam_openid_connect_provider.this.url, "https://", "")}:sub"
+      variable = "${local.oidc_provider_url}:sub"
       values   = ["system:serviceaccount:kube-system:cluster-autoscaler"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider_url}:aud"
+      values   = ["sts.amazonaws.com"]
     }
 
     principals {
@@ -36,15 +42,14 @@ resource "aws_iam_role" "cluster_autoscaler" {
   count = var.enable_cluster_autoscaler ? 1 : 0
 
   assume_role_policy = data.aws_iam_policy_document.cluster_autoscaler.json
-  name               = "ause1-role-eks-addons-autoscaler-${var.account_name}-${var.project_name}"
-
-  tags = var.tags_common
+  name               = substr("${local.role_prefix}-autoscaler-${local.name_suffix}", 0, 64)
+  tags               = merge(local.common_tags, { Name = substr("${local.role_prefix}-autoscaler-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "cluster_autoscaler" {
   count = var.enable_cluster_autoscaler ? 1 : 0
 
-  name = "ause1-policy-eks-addons-autoscaler-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-autoscaler-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -80,7 +85,7 @@ resource "aws_iam_policy" "cluster_autoscaler" {
     ]
   })
 
-  tags = var.tags_common
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-autoscaler-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {

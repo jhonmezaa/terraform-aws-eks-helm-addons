@@ -28,6 +28,8 @@ resource "helm_release" "cert_manager" {
   create_namespace = var.cert_manager.create_namespace
   timeout          = var.cert_manager.timeout
 
+  values = var.cert_manager.values
+
   set = concat(
     [
       {

@@ -27,7 +27,9 @@ resource "helm_release" "ingress_nginx" {
   namespace        = var.ingress_nginx.namespace
   create_namespace = var.ingress_nginx.create_namespace
   timeout          = var.ingress_nginx.timeout
-  wait             = var.ingress_nginx.wait
+
+  values = var.ingress_nginx.values
+  wait   = var.ingress_nginx.wait
 
   set = concat(
     [
