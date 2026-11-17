@@ -37,16 +37,16 @@ data "aws_iam_policy_document" "keda_operator_trust_policy" {
 resource "aws_iam_role" "keda" {
   count = var.enable_keda ? 1 : 0
 
-  name               = "${local.name_prefix}-keda-${var.account_name}-${var.project_name}"
+  name               = substr("${local.role_prefix}-keda-${local.name_suffix}", 0, 64)
   assume_role_policy = data.aws_iam_policy_document.keda_operator_trust_policy.json
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = substr("${local.role_prefix}-keda-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "keda" {
   count = var.enable_keda ? 1 : 0
 
-  name = "${local.policy_prefix}-keda-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-keda-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -76,7 +76,7 @@ resource "aws_iam_policy" "keda" {
     ]
   })
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-keda-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "keda" {
@@ -103,19 +103,20 @@ resource "helm_release" "keda" {
   create_namespace = var.keda.create_namespace
   timeout          = var.keda.timeout
 
+  values = var.keda.values
+
+  # IRSA for the keda-operator service account (the one trusted by the IAM role).
+  # podIdentity.aws.irsa.* annotates the operator service account with the role
+  # ARN and is supported by every KEDA chart since 2.7.
   set = concat(
     [
       {
-        name  = "rbac.serviceAccount.name"
-        value = "keda"
+        name  = "podIdentity.aws.irsa.enabled"
+        value = "true"
       },
       {
-        name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+        name  = "podIdentity.aws.irsa.roleArn"
         value = aws_iam_role.keda[0].arn
-      },
-      {
-        name  = "autoDiscovery.clusterName"
-        value = var.eks_name
       },
     ],
     var.keda.set_values

@@ -46,16 +46,16 @@ data "aws_iam_policy_document" "aws_load_balancer_controller_trust_policy" {
 resource "aws_iam_role" "aws_load_balancer_controller" {
   count = var.enable_aws_load_balancer_controller ? 1 : 0
 
-  name               = "${local.name_prefix}-aws-lb-controller-${var.account_name}-${var.project_name}"
+  name               = substr("${local.role_prefix}-aws-lb-controller-${local.name_suffix}", 0, 64)
   assume_role_policy = data.aws_iam_policy_document.aws_load_balancer_controller_trust_policy.json
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = substr("${local.role_prefix}-aws-lb-controller-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "aws_load_balancer_controller" {
   count = var.enable_aws_load_balancer_controller ? 1 : 0
 
-  name = "${local.policy_prefix}-aws-lb-controller-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-aws-lb-controller-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -209,7 +209,7 @@ resource "aws_iam_policy" "aws_load_balancer_controller" {
     ]
   })
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-aws-lb-controller-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
@@ -230,6 +230,8 @@ resource "helm_release" "aws_load_balancer_controller" {
   namespace        = var.aws_load_balancer_controller.namespace
   create_namespace = var.aws_load_balancer_controller.create_namespace
   timeout          = var.aws_load_balancer_controller.timeout
+
+  values = var.aws_load_balancer_controller.values
 
   set = concat(
     [
@@ -253,11 +255,15 @@ resource "helm_release" "aws_load_balancer_controller" {
         name  = "region"
         value = data.aws_region.current.region
       },
+    ],
+    # vpcId is only passed when provided; otherwise the controller discovers
+    # it from the EC2 instance metadata (requires IMDS hop limit >= 2).
+    var.aws_load_balancer_controller.vpc_id != null ? [
       {
         name  = "vpcId"
-        value = data.aws_caller_identity.current.account_id
+        value = var.aws_load_balancer_controller.vpc_id
       },
-    ],
+    ] : [],
     var.aws_load_balancer_controller.set_values
   )
 }
