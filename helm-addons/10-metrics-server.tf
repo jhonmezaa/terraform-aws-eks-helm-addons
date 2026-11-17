@@ -29,6 +29,8 @@ resource "helm_release" "metrics_server" {
   create_namespace = var.metrics_server.create_namespace
   timeout          = var.metrics_server.timeout
 
+  values = var.metrics_server.values
+
   set = concat(
     [
       {

@@ -44,16 +44,16 @@ data "aws_iam_policy_document" "velero_trust_policy" {
 resource "aws_iam_role" "velero" {
   count = var.enable_velero ? 1 : 0
 
-  name               = "${local.name_prefix}-velero-${var.account_name}-${var.project_name}"
+  name               = substr("${local.role_prefix}-velero-${local.name_suffix}", 0, 64)
   assume_role_policy = data.aws_iam_policy_document.velero_trust_policy.json
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = substr("${local.role_prefix}-velero-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "velero" {
   count = var.enable_velero ? 1 : 0
 
-  name = "${local.policy_prefix}-velero-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-velero-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -94,7 +94,7 @@ resource "aws_iam_policy" "velero" {
     ]
   })
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-velero-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "velero" {
@@ -118,7 +118,7 @@ resource "helm_release" "velero" {
 
   # Use values YAML for array-type fields (backupStorageLocation, volumeSnapshotLocation, initContainers)
   # The Velero chart v11+ requires these as arrays, which cannot be properly set via helm set flags
-  values = [
+  values = concat([
     yamlencode({
       serviceAccount = {
         server = {
@@ -153,7 +153,7 @@ resource "helm_release" "velero" {
       initContainers = [
         {
           name  = "velero-plugin-for-aws"
-          image = "velero/velero-plugin-for-aws:v1.11.0"
+          image = var.velero.plugin_image
           volumeMounts = [
             {
               mountPath = "/target"
@@ -162,8 +162,8 @@ resource "helm_release" "velero" {
           ]
         }
       ]
-    })
-  ]
+    }),
+  ], var.velero.values)
 
   set = var.velero.set_values
 }

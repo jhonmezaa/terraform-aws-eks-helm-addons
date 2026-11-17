@@ -45,16 +45,16 @@ data "aws_iam_policy_document" "aws_node_termination_handler_trust_policy" {
 resource "aws_iam_role" "aws_node_termination_handler" {
   count = var.enable_aws_node_termination_handler ? 1 : 0
 
-  name               = "${local.name_prefix}-node-termination-handler-${var.account_name}-${var.project_name}"
+  name               = substr("${local.role_prefix}-node-termination-handler-${local.name_suffix}", 0, 64)
   assume_role_policy = data.aws_iam_policy_document.aws_node_termination_handler_trust_policy.json
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = substr("${local.role_prefix}-node-termination-handler-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "aws_node_termination_handler" {
   count = var.enable_aws_node_termination_handler ? 1 : 0
 
-  name = "${local.policy_prefix}-node-termination-handler-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-node-termination-handler-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -84,7 +84,7 @@ resource "aws_iam_policy" "aws_node_termination_handler" {
     ]
   })
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-node-termination-handler-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "aws_node_termination_handler" {
@@ -105,6 +105,8 @@ resource "helm_release" "aws_node_termination_handler" {
   namespace        = var.aws_node_termination_handler.namespace
   create_namespace = var.aws_node_termination_handler.create_namespace
   timeout          = var.aws_node_termination_handler.timeout
+
+  values = var.aws_node_termination_handler.values
 
   set = concat(
     [

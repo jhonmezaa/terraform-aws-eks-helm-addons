@@ -34,7 +34,9 @@ resource "helm_release" "dynatrace_operator" {
   namespace        = var.dynatrace.namespace
   create_namespace = var.dynatrace.create_namespace
   timeout          = var.dynatrace.timeout
-  atomic           = true
+
+  values = var.dynatrace.values
+  atomic = true
 
   set = concat(
     [

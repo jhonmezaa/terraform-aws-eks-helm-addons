@@ -44,16 +44,16 @@ data "aws_iam_policy_document" "external_dns_trust_policy" {
 resource "aws_iam_role" "external_dns" {
   count = var.enable_external_dns ? 1 : 0
 
-  name               = "${local.name_prefix}-external-dns-${var.account_name}-${var.project_name}"
+  name               = substr("${local.role_prefix}-external-dns-${local.name_suffix}", 0, 64)
   assume_role_policy = data.aws_iam_policy_document.external_dns_trust_policy.json
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = substr("${local.role_prefix}-external-dns-${local.name_suffix}", 0, 64) })
 }
 
 resource "aws_iam_policy" "external_dns" {
   count = var.enable_external_dns ? 1 : 0
 
-  name = "${local.policy_prefix}-external-dns-${var.account_name}-${var.project_name}"
+  name = "${local.policy_prefix}-external-dns-${local.name_suffix}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -74,12 +74,14 @@ resource "aws_iam_policy" "external_dns" {
         Action = [
           "route53:ChangeResourceRecordSets"
         ]
-        Resource = "arn:${data.aws_partition.current.partition}:route53:::hostedzone/*"
+        # Restrict to the given hosted zones when provided (least privilege);
+        # otherwise keep the previous behaviour (all hosted zones).
+        Resource = length(var.external_dns.route53_zone_arns) > 0 ? var.external_dns.route53_zone_arns : ["arn:${data.aws_partition.current.partition}:route53:::hostedzone/*"]
       }
     ]
   })
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, { Name = "${local.policy_prefix}-external-dns-${local.name_suffix}" })
 }
 
 resource "aws_iam_role_policy_attachment" "external_dns" {
@@ -100,6 +102,8 @@ resource "helm_release" "external_dns" {
   namespace        = var.external_dns.namespace
   create_namespace = var.external_dns.create_namespace
   timeout          = var.external_dns.timeout
+
+  values = var.external_dns.values
 
   set = concat(
     [

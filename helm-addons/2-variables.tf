@@ -5,11 +5,31 @@
 variable "account_name" {
   description = "Account name for resource naming"
   type        = string
+
+  validation {
+    condition     = length(var.account_name) >= 1 && length(var.account_name) <= 32
+    error_message = "account_name debe tener entre 1 y 32 caracteres."
+  }
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.account_name))
+    error_message = "account_name solo puede contener letras minúsculas, números y guiones (^[a-z0-9-]+$)."
+  }
 }
 
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
+
+  validation {
+    condition     = length(var.project_name) >= 1 && length(var.project_name) <= 32
+    error_message = "project_name debe tener entre 1 y 32 caracteres."
+  }
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.project_name))
+    error_message = "project_name solo puede contener letras minúsculas, números y guiones (^[a-z0-9-]+$)."
+  }
 }
 
 variable "region_prefix" {
@@ -83,12 +103,14 @@ variable "enable_aws_load_balancer_controller" {
 }
 
 variable "aws_load_balancer_controller" {
-  description = "AWS Load Balancer Controller addon configuration"
+  description = "AWS Load Balancer Controller addon configuration. values: list of raw YAML values files. vpc_id: VPC ID passed to the chart (vpcId); when null the controller discovers it from instance metadata."
   type = object({
     helm_version     = optional(string)
     namespace        = optional(string, "kube-system")
     create_namespace = optional(bool, false)
     timeout          = optional(number, 300)
+    values           = optional(list(string), [])
+    vpc_id           = optional(string)
     set_values = optional(list(object({
       name  = string
       value = string
@@ -114,6 +136,7 @@ variable "metrics_server" {
     namespace        = optional(string, "kube-system")
     create_namespace = optional(bool, false)
     timeout          = optional(number, 300)
+    values           = optional(list(string), [])
     set_values = optional(list(object({
       name  = string
       value = string
@@ -133,13 +156,15 @@ variable "enable_external_dns" {
 }
 
 variable "external_dns" {
-  description = "External DNS addon configuration"
+  description = "External DNS addon configuration. route53_zone_arns restricts route53:ChangeResourceRecordSets to those hosted zones (default: all hosted zones)."
   type = object({
-    helm_version     = optional(string)
-    namespace        = optional(string, "external-dns")
-    create_namespace = optional(bool, true)
-    timeout          = optional(number, 300)
-    domain_filters   = optional(list(string), [])
+    helm_version      = optional(string)
+    namespace         = optional(string, "external-dns")
+    create_namespace  = optional(bool, true)
+    timeout           = optional(number, 300)
+    values            = optional(list(string), [])
+    domain_filters    = optional(list(string), [])
+    route53_zone_arns = optional(list(string), [])
     set_values = optional(list(object({
       name  = string
       value = string
@@ -165,6 +190,7 @@ variable "cert_manager" {
     namespace        = optional(string, "cert-manager")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
+    values           = optional(list(string), [])
     install_crds     = optional(bool, true)
     set_values = optional(list(object({
       name  = string
@@ -185,14 +211,16 @@ variable "enable_aws_for_fluent_bit" {
 }
 
 variable "aws_for_fluent_bit" {
-  description = "AWS for Fluent Bit addon configuration"
+  description = "AWS for Fluent Bit addon configuration. cloudwatch_log_kms_key_id: KMS key ARN to encrypt the optional CloudWatch log group."
   type = object({
-    helm_version             = optional(string)
-    namespace                = optional(string, "kube-system")
-    create_namespace         = optional(bool, false)
-    timeout                  = optional(number, 300)
-    cloudwatch_log_group     = optional(string)
-    cloudwatch_log_retention = optional(number, 7)
+    helm_version              = optional(string)
+    namespace                 = optional(string, "kube-system")
+    create_namespace          = optional(bool, false)
+    timeout                   = optional(number, 300)
+    values                    = optional(list(string), [])
+    cloudwatch_log_group      = optional(string)
+    cloudwatch_log_retention  = optional(number, 7)
+    cloudwatch_log_kms_key_id = optional(string)
     set_values = optional(list(object({
       name  = string
       value = string
@@ -212,19 +240,28 @@ variable "enable_karpenter" {
 }
 
 variable "karpenter" {
-  description = "Karpenter addon configuration"
+  description = "Karpenter addon configuration. enable_spot_termination creates an SQS interruption queue plus EventBridge rules (spot interruption, rebalance, state change, AWS Health) and sets settings.interruptionQueue. sqs_kms_master_key_id switches the queue from SQS-managed SSE to KMS."
   type = object({
-    helm_version      = optional(string)
-    namespace         = optional(string, "kube-system")
-    create_namespace  = optional(bool, true)
-    timeout           = optional(number, 300)
-    spotconsolidation = optional(bool, false)
+    helm_version                  = optional(string)
+    namespace                     = optional(string, "kube-system")
+    create_namespace              = optional(bool, true)
+    timeout                       = optional(number, 300)
+    values                        = optional(list(string), [])
+    spotconsolidation             = optional(bool, false)
+    enable_spot_termination       = optional(bool, false)
+    sqs_message_retention_seconds = optional(number, 300)
+    sqs_kms_master_key_id         = optional(string)
     set_values = optional(list(object({
       name  = string
       value = string
     })), [])
   })
   default = {}
+
+  validation {
+    condition     = var.karpenter.sqs_message_retention_seconds >= 60 && var.karpenter.sqs_message_retention_seconds <= 1209600
+    error_message = "karpenter.sqs_message_retention_seconds debe estar entre 60 y 1209600 segundos."
+  }
 }
 
 # Backwards compatibility
@@ -257,6 +294,7 @@ variable "keda" {
     namespace        = optional(string, "keda")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
+    values           = optional(list(string), [])
     set_values = optional(list(object({
       name  = string
       value = string
@@ -283,12 +321,16 @@ variable "enable_external_secrets" {
 }
 
 variable "external_secrets" {
-  description = "External Secrets Operator addon configuration"
+  description = "External Secrets Operator addon configuration. secrets_manager_arns defaults to [\"*\"] (all secrets, previous behaviour); ssm_parameter_arns and kms_key_arns add SSM Parameter Store and KMS decrypt permissions when non-empty."
   type = object({
-    helm_version     = optional(string)
-    namespace        = optional(string, "external-secrets")
-    create_namespace = optional(bool, true)
-    timeout          = optional(number, 300)
+    helm_version         = optional(string)
+    namespace            = optional(string, "external-secrets")
+    create_namespace     = optional(bool, true)
+    timeout              = optional(number, 300)
+    values               = optional(list(string), [])
+    secrets_manager_arns = optional(list(string), ["*"])
+    ssm_parameter_arns   = optional(list(string), [])
+    kms_key_arns         = optional(list(string), [])
     set_values = optional(list(object({
       name  = string
       value = string
@@ -315,12 +357,14 @@ variable "enable_ebs_csi_driver" {
 }
 
 variable "ebs_csi_driver" {
-  description = "AWS EBS CSI Driver addon configuration"
+  description = "AWS EBS CSI Driver addon configuration. kms_key_arns grants the KMS permissions required for encrypted EBS volumes."
   type = object({
     helm_version     = optional(string)
     namespace        = optional(string, "kube-system")
     create_namespace = optional(bool, false)
     timeout          = optional(number, 300)
+    values           = optional(list(string), [])
+    kms_key_arns     = optional(list(string), [])
     set_values = optional(list(object({
       name  = string
       value = string
@@ -347,13 +391,15 @@ variable "enable_velero" {
 }
 
 variable "velero" {
-  description = "Velero addon configuration"
+  description = "Velero addon configuration. plugin_image: velero-plugin-for-aws init container image."
   type = object({
     helm_version     = optional(string)
     namespace        = optional(string, "velero")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
+    values           = optional(list(string), [])
     backup_bucket    = optional(string)
+    plugin_image     = optional(string, "velero/velero-plugin-for-aws:v1.11.0")
     set_values = optional(list(object({
       name  = string
       value = string
@@ -379,6 +425,7 @@ variable "vpa" {
     namespace        = optional(string, "vpa")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
+    values           = optional(list(string), [])
     set_values = optional(list(object({
       name  = string
       value = string
@@ -404,6 +451,7 @@ variable "aws_node_termination_handler" {
     namespace                         = optional(string, "kube-system")
     create_namespace                  = optional(bool, false)
     timeout                           = optional(number, 300)
+    values                            = optional(list(string), [])
     enable_spot_interruption_draining = optional(bool, true)
     enable_scheduled_event_draining   = optional(bool, true)
     set_values = optional(list(object({
@@ -431,6 +479,7 @@ variable "ingress_nginx" {
     namespace        = optional(string, "ingress-nginx")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
+    values           = optional(list(string), [])
     wait             = optional(bool, true)
     set_values = optional(list(object({
       name  = string
@@ -473,6 +522,7 @@ variable "dynatrace" {
     namespace          = optional(string, "dynatrace")
     create_namespace   = optional(bool, true)
     timeout            = optional(number, 300)
+    values             = optional(list(string), [])
     csi_driver_enabled = optional(bool, true)
     set_values = optional(list(object({
       name  = string

@@ -30,16 +30,28 @@ locals {
     "custom"
   )
 
-  # Common resource naming prefix
-  name_prefix             = "${local.region_prefix}-role-eks-addons"
-  policy_prefix           = "${local.region_prefix}-policy-eks-addons"
-  instance_profile_prefix = "${local.region_prefix}-instance-profile-eks"
+  # Common resource naming prefix (AGENTS.md convention). When
+  # use_region_prefix = false, names omit the region prefix entirely.
+  name_prefix = var.use_region_prefix ? "${local.region_prefix}-" : ""
 
-  # Common tags
+  # Per-resource-type prefixes (kept identical to previous releases when
+  # use_region_prefix = true, so existing resources are not renamed)
+  role_prefix             = "${local.name_prefix}role-eks-addons"
+  policy_prefix           = "${local.name_prefix}policy-eks-addons"
+  instance_profile_prefix = "${local.name_prefix}instance-profile-eks"
+  sqs_prefix              = "${local.name_prefix}sqs-eks-addons"
+  event_rule_prefix       = "${local.name_prefix}evtr-eks-addons"
+
+  # Suffix shared by every resource name
+  name_suffix = "${var.account_name}-${var.project_name}"
+
+  # Common tags. Every resource adds its own Name tag on top of these:
+  # merge(local.common_tags, { Name = <name> }). ManagedBy always wins.
   common_tags = merge(
     var.tags_common,
     {
-      Module = "terraform-aws-eks-helm-addons"
+      Module    = "terraform-aws-eks-helm-addons"
+      ManagedBy = "Terraform"
     }
   )
 

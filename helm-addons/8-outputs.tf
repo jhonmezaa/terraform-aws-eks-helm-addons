@@ -41,6 +41,16 @@ output "karpenter_instance_profile_name" {
   value       = var.enable_karpenter ? aws_iam_instance_profile.karpenter[0].name : null
 }
 
+output "karpenter_interruption_queue_name" {
+  description = "Name of the SQS queue used by Karpenter for interruption handling (null unless karpenter.enable_spot_termination = true)"
+  value       = try(aws_sqs_queue.karpenter[0].name, null)
+}
+
+output "karpenter_interruption_queue_arn" {
+  description = "ARN of the SQS queue used by Karpenter for interruption handling (null unless karpenter.enable_spot_termination = true)"
+  value       = try(aws_sqs_queue.karpenter[0].arn, null)
+}
+
 output "karpenter_helm_release_name" {
   description = "Name of the Karpenter Helm release"
   value       = var.enable_karpenter ? helm_release.karpenter[0].name : null
