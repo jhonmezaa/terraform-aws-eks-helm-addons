@@ -1,6 +1,5 @@
 # ECR Public Auth Cleanup Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Clean up dead ECR Public auth code, update comments to reflect anonymous pull as default, and document the optional ephemeral resource pattern for enterprise use.
 
