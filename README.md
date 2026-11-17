@@ -4,7 +4,7 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 
 ## Features
 
-### Comprehensive Addon Support (13 addons)
+### Comprehensive Addon Support (15 addons)
 
 **Critical Infrastructure** (⭐⭐⭐):
 
@@ -30,6 +30,11 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 - ✅ AWS Node Termination Handler - Graceful spot termination
 - ✅ Ingress Nginx - NGINX-based ingress controller
 
+**Storage & Observability**:
+
+- ✅ AWS EBS CSI Driver - EBS persistent volumes
+- ✅ Dynatrace Operator - Full-stack observability
+
 **Deprecated**:
 
 - ⚠️ Cluster Autoscaler - Use Karpenter instead
@@ -41,7 +46,7 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 - **Dynamic Region Support**: Automatic region prefix detection for multi-region deployments
 - **Backwards Compatible**: Legacy variable support with deprecation warnings
 - **Dependency Management**: Smart addon ordering and dependencies
-- **Custom Helm Values**: Support for custom configuration via `set_values`
+- **Custom Helm Values**: Support for custom configuration via `values` (YAML) and `set_values`
 
 ## Requirements
 
@@ -57,7 +62,7 @@ Production-ready Terraform module for deploying Kubernetes Helm-based addons on 
 
 ```hcl
 module "eks_helm_addons" {
-  source = "github.com/jhonmezaa/terraform-aws-eks-helm-addons//helm-addons?ref=v3.1.3"
+  source = "github.com/jhonmezaa/terraform-aws-eks-helm-addons//helm-addons?ref=v3.2.0"
 
   account_name = "prod"
   project_name = "myapp"
@@ -69,7 +74,10 @@ module "eks_helm_addons" {
 
   # Critical addons
   enable_aws_load_balancer_controller = true
-  enable_metrics_server               = true
+  aws_load_balancer_controller = {
+    vpc_id = module.vpc.vpc_id # optional, auto-discovered from IMDS when null
+  }
+  enable_metrics_server = true
   enable_karpenter                    = true
 
   # Karpenter requires node role
@@ -78,7 +86,6 @@ module "eks_helm_addons" {
 
   tags_common = {
     Environment = "production"
-    ManagedBy   = "terraform"
   }
 }
 ```
@@ -87,7 +94,7 @@ module "eks_helm_addons" {
 
 ```hcl
 module "eks_helm_addons" {
-  source = "./helm-addons"
+  source = "github.com/jhonmezaa/terraform-aws-eks-helm-addons//helm-addons?ref=v3.2.0"
 
   account_name = "prod"
   project_name = "myapp"
@@ -105,6 +112,7 @@ module "eks_helm_addons" {
   aws_load_balancer_controller = {
     helm_version = "1.6.2"
     namespace    = "kube-system"
+    vpc_id       = module.vpc.vpc_id
     set_values = [
       {
         name  = "replicaCount"
@@ -122,8 +130,9 @@ module "eks_helm_addons" {
   # External DNS
   enable_external_dns = true
   external_dns = {
-    helm_version   = "1.13.1"
-    domain_filters = ["example.com", "example.org"]
+    helm_version      = "1.13.1"
+    domain_filters    = ["example.com", "example.org"]
+    route53_zone_arns = ["arn:aws:route53:::hostedzone/Z0123456789ABC"]
   }
 
   # Cert-Manager
@@ -143,12 +152,17 @@ module "eks_helm_addons" {
   # Karpenter
   enable_karpenter = true
   karpenter = {
-    helm_version      = "v0.33.0"
-    spotconsolidation = true
+    helm_version            = "1.9.0"
+    spotconsolidation       = true
+    enable_spot_termination = true # SQS interruption queue + EventBridge rules
   }
 
   # External Secrets
   enable_external_secrets = true
+  external_secrets = {
+    secrets_manager_arns = ["arn:aws:secretsmanager:us-east-1:123456789012:secret:myapp/*"]
+    ssm_parameter_arns   = ["arn:aws:ssm:us-east-1:123456789012:parameter/myapp/*"]
+  }
 
   # KEDA
   enable_keda = true
@@ -170,7 +184,6 @@ module "eks_helm_addons" {
 
   tags_common = {
     Environment = "production"
-    ManagedBy   = "terraform"
   }
 }
 ```
@@ -197,6 +210,8 @@ aws_load_balancer_controller = {
   helm_version = "1.6.2"      # Optional
   namespace    = "kube-system" # Default
   timeout      = 300           # Seconds
+  vpc_id       = "vpc-0123abcd" # Optional: chart vpcId. When null the controller uses IMDS (hop limit >= 2)
+  values       = []            # Optional raw YAML values files
   set_values = [
     {
       name  = "replicaCount"
@@ -242,8 +257,9 @@ Automatically manages Route53 DNS records for Services and Ingresses.
 ```hcl
 enable_external_dns = true
 external_dns = {
-  helm_version   = "1.13.1"
-  domain_filters = ["example.com"]
+  helm_version      = "1.13.1"
+  domain_filters    = ["example.com"]
+  route53_zone_arns = ["arn:aws:route53:::hostedzone/Z0123456789ABC"] # Optional: restrict record changes (default: all zones)
 }
 ```
 
@@ -284,8 +300,9 @@ Lightweight log forwarder to CloudWatch Logs.
 ```hcl
 enable_aws_for_fluent_bit = true
 aws_for_fluent_bit = {
-  cloudwatch_log_group     = "/aws/eks/cluster/logs"
-  cloudwatch_log_retention = 7  # Days
+  cloudwatch_log_group      = "/aws/eks/cluster/logs"
+  cloudwatch_log_retention  = 7    # Days
+  cloudwatch_log_kms_key_id = null # Optional KMS key ARN for the log group
 }
 ```
 
@@ -307,9 +324,15 @@ enable_karpenter = true
 karpenter = {
   helm_version      = "1.9.0"
   spotconsolidation = true
+
+  # Optional interruption handling: SQS queue + EventBridge rules (spot
+  # interruption, rebalance, state change, AWS Health) and settings.interruptionQueue
+  enable_spot_termination       = true
+  sqs_message_retention_seconds = 300
+  sqs_kms_master_key_id         = null # SQS-managed SSE when null
 }
 
-# Required: node role for instance profile
+# Required: node role for instance profile (node_role_arn also scopes iam:PassRole)
 node_role_arn  = module.eks.node_iam_role_arn
 node_role_name = module.eks.node_iam_role_name
 ```
@@ -332,7 +355,10 @@ Syncs AWS Secrets Manager secrets to Kubernetes.
 ```hcl
 enable_external_secrets = true
 external_secrets = {
-  helm_version = "0.9.9"
+  helm_version         = "0.9.9"
+  secrets_manager_arns = ["*"] # Default (all secrets). Restrict with secret ARNs/patterns
+  ssm_parameter_arns   = []    # Grants SSM Parameter Store read when not empty
+  kms_key_arns         = []    # Grants kms:Decrypt when not empty
 }
 ```
 
@@ -356,6 +382,8 @@ keda = {
 }
 ```
 
+The IRSA role is attached to the `keda-operator` service account through the chart's `podIdentity.aws.irsa.*` values.
+
 ### Velero
 
 Backup and disaster recovery for Kubernetes.
@@ -374,6 +402,7 @@ enable_velero = true
 velero = {
   helm_version  = "5.1.0"
   backup_bucket = "my-velero-backups"  # S3 bucket
+  plugin_image  = "velero/velero-plugin-for-aws:v1.11.0" # Default
 }
 ```
 
@@ -436,31 +465,86 @@ ingress_nginx = {
 }
 ```
 
+### AWS EBS CSI Driver
+
+Dynamic provisioning of EBS volumes (IRSA on `ebs-csi-controller-sa`).
+
+```hcl
+enable_ebs_csi_driver = true
+ebs_csi_driver = {
+  kms_key_arns = ["arn:aws:kms:us-east-1:123456789012:key/..."] # Optional: customer managed keys for encrypted volumes
+}
+```
+
+### Dynatrace Operator
+
+Full-stack observability (`oci://public.ecr.aws/dynatrace`, no IAM role).
+
+```hcl
+enable_dynatrace = true
+dynatrace = {
+  csi_driver_enabled = true
+}
+```
+
+### Cluster Autoscaler (deprecated)
+
+```hcl
+enable_cluster_autoscaler       = true
+cluster_autoscaler_helm_version = "9.43.2"
+```
+
 ## Input Variables
 
 ### Required Variables
 
-| Name                   | Description                      | Type     |
-| ---------------------- | -------------------------------- | -------- |
-| `account_name`         | Account name for resource naming | `string` |
-| `project_name`         | Project name for resource naming | `string` |
-| `eks_name`             | EKS cluster name                 | `string` |
-| `eks_region`           | AWS region                       | `string` |
-| `eks_cluster_endpoint` | EKS API endpoint                 | `string` |
-| `openid_provider_arn`  | OIDC provider ARN for IRSA       | `string` |
+| Name                   | Description                                                   | Type     |
+| ---------------------- | ------------------------------------------------------------- | -------- |
+| `account_name`         | Account name for resource naming (1-32 chars, `^[a-z0-9-]+$`) | `string` |
+| `project_name`         | Project name for resource naming (1-32 chars, `^[a-z0-9-]+$`) | `string` |
+| `eks_name`             | EKS cluster name                                              | `string` |
+| `eks_region`           | AWS region of the cluster (used by Cluster Autoscaler)        | `string` |
+| `eks_cluster_endpoint` | EKS API endpoint                                              | `string` |
+| `openid_provider_arn`  | IAM OIDC provider ARN for IRSA                                | `string` |
 
 ### Optional Variables
 
-| Name             | Description                           | Type       | Default |
-| ---------------- | ------------------------------------- | ---------- | ------- |
-| `region_prefix`  | Region prefix (auto-detected if null) | `string`   | `null`  |
-| `tags_common`    | Common tags for all resources         | `map(any)` | `{}`    |
-| `node_role_arn`  | Node IAM role ARN (for Karpenter)     | `string`   | `null`  |
-| `node_role_name` | Node IAM role name (for Karpenter)    | `string`   | `null`  |
+| Name                  | Description                                                    | Type       | Default |
+| --------------------- | -------------------------------------------------------------- | ---------- | ------- |
+| `region_prefix`       | Region prefix (auto-detected from the provider region if null) | `string`   | `null`  |
+| `use_region_prefix`   | Include the region prefix in resource names                    | `bool`     | `true`  |
+| `tags_common`         | Common tags for all resources                                  | `map(any)` | `{}`    |
+| `eks_cluster_version` | Kubernetes version (informational)                             | `string`   | `null`  |
+| `node_role_arn`       | Node IAM role ARN (Karpenter: scopes `iam:PassRole`)           | `string`   | `null`  |
+| `node_role_name`      | Node IAM role name (required when `enable_karpenter = true`)   | `string`   | `null`  |
+
+### Addon toggles and configuration objects
+
+Every addon is disabled by default and is configured through an object variable.
+
+| Toggle                                | Object                                | Addon-specific attributes (besides the common ones)                                                       |
+| ------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `enable_aws_load_balancer_controller` | `aws_load_balancer_controller`        | `vpc_id`                                                                                                  |
+| `enable_metrics_server`               | `metrics_server`                      | -                                                                                                         |
+| `enable_external_dns`                 | `external_dns`                        | `domain_filters`, `route53_zone_arns`                                                                     |
+| `enable_cert_manager`                 | `cert_manager`                        | `install_crds`                                                                                            |
+| `enable_aws_for_fluent_bit`           | `aws_for_fluent_bit`                  | `cloudwatch_log_group`, `cloudwatch_log_retention`, `cloudwatch_log_kms_key_id`                           |
+| `enable_karpenter`                    | `karpenter`                           | `spotconsolidation`, `enable_spot_termination`, `sqs_message_retention_seconds`, `sqs_kms_master_key_id`  |
+| `enable_keda`                         | `keda`                                | -                                                                                                         |
+| `enable_external_secrets`             | `external_secrets`                    | `secrets_manager_arns`, `ssm_parameter_arns`, `kms_key_arns`                                              |
+| `enable_ebs_csi_driver`               | `ebs_csi_driver`                      | `kms_key_arns`                                                                                            |
+| `enable_velero`                       | `velero`                              | `backup_bucket`, `plugin_image`                                                                           |
+| `enable_vpa`                          | `vpa`                                 | -                                                                                                         |
+| `enable_aws_node_termination_handler` | `aws_node_termination_handler`        | `enable_spot_interruption_draining`, `enable_scheduled_event_draining`                                    |
+| `enable_ingress_nginx`                | `ingress_nginx`                       | `wait`                                                                                                    |
+| `enable_dynatrace`                    | `dynatrace`                           | `csi_driver_enabled`                                                                                      |
+| `enable_cluster_autoscaler`           | - (`cluster_autoscaler_helm_version`) | -                                                                                                         |
+
+Deprecated inputs kept for backwards compatibility: `karpenter_helm_version`, `spotconsolidation`, `keda_helm_version`, `external_secrets_helm_version`, `ebs_csi_driver_helm_version`, `dynatrace_helm_version`.
 
 ### Addon Configuration Pattern
 
-Each addon follows this configuration pattern:
+Each addon object shares these attributes:
 
 ```hcl
 variable "addon_name" {
@@ -469,6 +553,7 @@ variable "addon_name" {
     namespace        = optional(string, "default-namespace")
     create_namespace = optional(bool, true)
     timeout          = optional(number, 300)
+    values           = optional(list(string), []) # raw YAML values files
     set_values       = optional(list(object({
       name  = string
       value = string
@@ -481,7 +566,7 @@ variable "addon_name" {
 
 ## Outputs
 
-Each addon provides consistent outputs:
+Each addon provides consistent outputs (`null` when the addon is disabled):
 
 | Output Pattern                 | Description                 |
 | ------------------------------ | --------------------------- |
@@ -489,6 +574,9 @@ Each addon provides consistent outputs:
 | `{addon}_role_name`            | IAM role name               |
 | `{addon}_helm_release_name`    | Helm release name           |
 | `{addon}_helm_release_version` | Deployed Helm chart version |
+
+Additional outputs: `karpenter_instance_profile_name`, `karpenter_interruption_queue_name`, `karpenter_interruption_queue_arn`, `aws_for_fluent_bit_log_group_name`.
+Addons without IAM (`metrics_server`, `cert_manager`, `vpa`, `ingress_nginx`, `dynatrace`) only expose the `helm_release_*` outputs.
 
 **Example outputs**:
 
@@ -502,6 +590,11 @@ output "aws_load_balancer_controller_version" {
 }
 ```
 
+## Examples
+
+- [`examples/basic`](examples/basic) - AWS Load Balancer Controller + Metrics Server
+- [`examples/complete`](examples/complete) - most addons with least-privilege options (Karpenter interruption queue, scoped External DNS / External Secrets)
+
 ## Architecture
 
 ### Resource Naming Convention
@@ -512,22 +605,33 @@ All resources follow a standardized naming pattern:
 {region_prefix}-{resource-type}-eks-addons-{addon}-{account_name}-{project_name}
 ```
 
+With `use_region_prefix = false` the `{region_prefix}-` part is omitted. IAM role and EventBridge rule names are truncated to 64 characters and SQS queue names to 80 (AWS limits).
+Every resource is tagged with `tags_common` plus `Module`, `Name` and `ManagedBy = "Terraform"`.
+
 **Examples**:
 
 - IAM Role: `ause1-role-eks-addons-karpenter-prod-myapp`
 - IAM Policy: `ause1-policy-eks-addons-external-dns-prod-myapp`
 - Instance Profile: `ause1-instance-profile-eks-karpenter-prod-myapp`
+- SQS queue: `ause1-sqs-eks-addons-karpenter-prod-myapp`
+- EventBridge rule: `ause1-evtr-eks-addons-karpenter-spot-prod-myapp`
 
 ### Region Prefix Mapping
 
-Auto-detected from current AWS region:
+Auto-detected from the current AWS region (same map as `terraform-aws-eks`):
 
-- `us-east-1` → `ause1`
-- `us-west-2` → `usw2`
-- `eu-west-1` → `euw1`
-- `ap-southeast-1` → `apse1`
+| Region         | Prefix  | Region           | Prefix  |
+| -------------- | ------- | ---------------- | ------- |
+| `us-east-1`    | `ause1` | `eu-central-1`   | `euc1`  |
+| `us-east-2`    | `ause2` | `eu-north-1`     | `eun1`  |
+| `us-west-1`    | `usw1`  | `ap-south-1`     | `aps1`  |
+| `us-west-2`    | `usw2`  | `ap-southeast-1` | `apse1` |
+| `eu-west-1`    | `euw1`  | `ap-southeast-2` | `apse2` |
+| `eu-west-2`    | `euw2`  | `ap-northeast-1` | `apne1` |
+| `eu-west-3`    | `euw3`  | `ap-northeast-2` | `apne2` |
+| `ca-central-1` | `cac1`  | `sa-east-1`      | `sae1`  |
 
-Override with `region_prefix` variable if needed.
+Any other region resolves to `custom`. Override with the `region_prefix` variable if needed.
 
 ### IRSA (IAM Roles for Service Accounts)
 

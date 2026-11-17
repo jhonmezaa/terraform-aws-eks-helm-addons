@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.0] - 2026-11-17
+
+### Added
+
+- `values` (list of raw YAML values files) on every addon object, passed to `helm_release.values` (Velero appends them after the module defaults)
+- Karpenter interruption handling (opt-in, `karpenter.enable_spot_termination = false` by default): SQS queue (SQS-managed SSE or `sqs_kms_master_key_id`), queue policy with TLS-only access, four EventBridge rules (spot interruption, rebalance recommendation, instance state change, AWS Health) and `settings.interruptionQueue`; new outputs `karpenter_interruption_queue_name` / `karpenter_interruption_queue_arn`
+- `external_secrets.secrets_manager_arns` (default `["*"]`, previous behaviour), `ssm_parameter_arns` and `kms_key_arns` (SSM Parameter Store read and `kms:Decrypt`, opt-in)
+- `external_dns.route53_zone_arns` to restrict `route53:ChangeResourceRecordSets` to specific hosted zones (default: all zones, previous behaviour)
+- `ebs_csi_driver.kms_key_arns` to grant the KMS permissions needed by encrypted EBS volumes with customer managed keys
+- `aws_for_fluent_bit.cloudwatch_log_kms_key_id` to encrypt the optional CloudWatch log group
+- `aws_load_balancer_controller.vpc_id` and `velero.plugin_image`
+- Karpenter controller permissions `ec2:DescribeAvailabilityZones` and `iam:ListInstanceProfiles` (required by Karpenter v1)
+- Validation of `account_name` / `project_name` (1-32 characters, `^[a-z0-9-]+$`) and precondition requiring `node_role_name` when Karpenter is enabled
+- `examples/basic` and `examples/complete`
+
+### Changed
+
+- `use_region_prefix` is now honoured: with `false` the region prefix is removed from every resource name (it was declared but ignored)
+- Every resource is tagged with `Name` and `ManagedBy = "Terraform"` in addition to `tags_common` and `Module`
+- IAM role names are truncated to 64 characters (AWS limit)
+- Karpenter `iam:PassRole` is scoped to `node_role_arn` when provided (`*` otherwise, as before)
+- Cluster Autoscaler and EBS CSI trust policies now also check the `aud` claim (`sts.amazonaws.com`); EBS CSI trust policy uses `ebs_csi_driver.namespace` instead of a hardcoded `kube-system`
+- README: complete inputs/outputs tables, region prefix map, examples and `?ref=v3.2.0` module sources
+
+### Fixed
+
+- AWS Load Balancer Controller received the AWS account ID as `vpcId`; `vpcId` is now only set from `aws_load_balancer_controller.vpc_id` (auto-discovered by the controller when null)
+- KEDA never got its IRSA role: the release set non-existent `rbac.serviceAccount.*` keys and a Cluster Autoscaler key (`autoDiscovery.clusterName`); it now uses `podIdentity.aws.irsa.enabled/roleArn` on the `keda-operator` service account
+- Cluster Autoscaler and EBS CSI IAM role/policy names were hardcoded to `ause1-` regardless of region and ignored `region_prefix`; their tags ignored the module common tags
+- Deprecated `spotconsolidation` input was ignored (`coalesce(false, true)` returns `false`)
+
+### Upgrade notes
+
+- **Resource replacement**: the Cluster Autoscaler and EBS CSI IAM roles/policies are renamed (and therefore replaced) only if the cluster is **not** in `us-east-1`, or `region_prefix` is set to something other than `ause1`, or `use_region_prefix = false`. Every other resource keeps its name with the default inputs. Replacement of an IRSA role is short-lived: the Helm release is updated with the new role ARN in the same apply.
+- `use_region_prefix = false` (previously ignored) now renames every IAM role, policy and instance profile; remove it or set it to `true` to keep the current names.
+- `account_name` / `project_name` with uppercase letters, underscores or more than 32 characters now fail validation.
+- `enable_karpenter = true` without `node_role_name` now fails at plan time (it failed at apply before).
+- If you worked around the `vpcId` bug with `set_values = [{ name = "vpcId", ... }]` it keeps working; you can move it to `aws_load_balancer_controller.vpc_id`.
+- The `ManagedBy` tag is forced to `Terraform` (case-sensitive) on every resource.
+
 ## [v3.1.4] - 2026-10-27
 
 ### Changed
